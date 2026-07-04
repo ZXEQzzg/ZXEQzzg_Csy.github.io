@@ -21,3 +21,4 @@ Because this is a static GitHub Pages site, a hidden editor route is not real ac
 ## Deployment
 
 The included GitHub Actions workflow builds the Vite app and publishes `dist` to GitHub Pages on pushes to `main`.
+# Deployment trigger
