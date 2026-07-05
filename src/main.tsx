@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 import {
   BookOpen,
   BriefcaseBusiness,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Github,
   Globe,
   Languages,
@@ -798,6 +800,48 @@ function LocalizedTextArrayEditor({
   );
 }
 
+// 编辑器里每个可排序卡片的头部：序号 + 标题 + 上移/下移
+function ItemHeader({
+  index,
+  total,
+  title,
+  onUp,
+  onDown,
+}: {
+  index: number;
+  total: number;
+  title: string;
+  onUp: () => void;
+  onDown: () => void;
+}) {
+  return (
+    <div className="itemHeader">
+      <span className="itemBadge">{index + 1}</span>
+      <span className="itemTitle">{title || '未命名'}</span>
+      <div className="itemActions">
+        <button
+          type="button"
+          className="iconMiniButton"
+          disabled={index === 0}
+          onClick={onUp}
+          title="上移"
+        >
+          <ChevronUp size={15} />
+        </button>
+        <button
+          type="button"
+          className="iconMiniButton"
+          disabled={index === total - 1}
+          onClick={onDown}
+          title="下移"
+        >
+          <ChevronDown size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ===== AdminEditor =====
 function AdminEditor({
   content,
@@ -951,6 +995,14 @@ function AdminEditor({
     );
   }
 
+  function moveTimelineProject(index: number, dir: -1 | 1) {
+    const arr = [...content.timelineProjects];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    commit({ ...content, timelineProjects: arr }, '已调整项目顺序');
+  }
+
   function updateTimelineField(id: string, field: 'period' | 'stack' | 'images', value: any) {
     const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
     commit({ ...content, timelineProjects: nextProjects });
@@ -994,6 +1046,14 @@ function AdminEditor({
       { ...content, galleryProjects: content.galleryProjects.filter((p) => p.id !== id) },
       '已删除学术项目'
     );
+  }
+
+  function moveGalleryProject(index: number, dir: -1 | 1) {
+    const arr = [...content.galleryProjects];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    commit({ ...content, galleryProjects: arr }, '已调整项目顺序');
   }
 
   function updateGalleryField(id: string, field: 'cover' | 'stack', value: any) {
@@ -1198,8 +1258,15 @@ function AdminEditor({
         return (
           <div className="editPanel">
             <h3>项目经历</h3>
-            {content.timelineProjects.map((project) => (
+            {content.timelineProjects.map((project, i) => (
               <div key={project.id} className="nestedEditor">
+                <ItemHeader
+                  index={i}
+                  total={content.timelineProjects.length}
+                  title={project.title[locale]}
+                  onUp={() => moveTimelineProject(i, -1)}
+                  onDown={() => moveTimelineProject(i, 1)}
+                />
                 <LocalizedTextInput
                   label="项目名称"
                   value={project.title}
@@ -1265,8 +1332,15 @@ function AdminEditor({
         return (
           <div className="editPanel">
             <h3>学术画廊</h3>
-            {content.galleryProjects.map((project) => (
+            {content.galleryProjects.map((project, i) => (
               <div key={project.id} className="nestedEditor">
+                <ItemHeader
+                  index={i}
+                  total={content.galleryProjects.length}
+                  title={project.title[locale]}
+                  onUp={() => moveGalleryProject(i, -1)}
+                  onDown={() => moveGalleryProject(i, 1)}
+                />
                 <LocalizedTextInput
                   label="项目名称"
                   value={project.title}
