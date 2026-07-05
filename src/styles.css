@@ -1140,6 +1140,79 @@ textarea {
   margin-bottom: 0;
 }
 
+.richToolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.richToolbar > button,
+.richToolbar select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--soft);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.richToolbar > button:hover,
+.richToolbar select:hover {
+  background: var(--panel-strong);
+}
+
+.colorPick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px solid var(--soft);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.colorPick input[type='color'] {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.colorPick .hexInput {
+  width: 82px;
+  min-height: 26px;
+  padding: 4px 6px;
+  border: 1px solid var(--soft);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg) 82%, black 18%);
+  color: var(--text);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.colorPick button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--soft);
+  border-radius: 4px;
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .stringArrayEditor {
   display: grid;
   gap: 8px;

@@ -97,8 +97,10 @@ export const defaultContent: SiteContent = {
     },
     links: [
       { label: 'Email', value: 'your-email@example.com', href: 'mailto:your-email@example.com' },
-      { label: 'GitHub', value: 'github.com/ZXEQzzg-Csy', href: 'https://github.com/ZXEQzzg-Csy' },
-      { label: 'Portfolio', value: 'ZXEQzzg_Csy.github.io', href: 'https://ZXEQzzg-Csy.github.io' },
+      { label: 'GitHub', value: 'github.com/ZXEQzzg', href: 'https://github.com/ZXEQzzg' },
+      { label: '电话', value: '+86 138 0000 0000', href: 'tel:+8613800000000' },
+      { label: '微信', value: 'your-wechat-id', href: '#' },
+      { label: 'Portfolio', value: 'ZXEQzzg.github.io/ZXEQzzg_Csy.github.io', href: 'https://ZXEQzzg.github.io/ZXEQzzg_Csy.github.io/' },
     ],
   },
   skills: {

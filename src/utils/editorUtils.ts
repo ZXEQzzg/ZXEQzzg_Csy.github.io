@@ -11,7 +11,10 @@ export function assetUrl(path: string): string {
   if (!path) return path;
   if (/^(https?:)?\/\//.test(path) || path.startsWith('data:')) return path;
   const base = import.meta.env.BASE_URL || '/';
-  return base + encodeURI(path.replace(/^\/+/, ''));
+  // 兼容 public/assets/x、/assets/x、assets/x 三种写法：public/ 是源码目录，
+  // 构建后从站点根提供，路径里不能带 public/，这里统一剥掉再拼 base。
+  const clean = path.replace(/^\/+/, '').replace(/^public\//, '');
+  return base + encodeURI(clean);
 }
 
 // ===== 序列化：SiteContent → TypeScript 文件字符串 =====

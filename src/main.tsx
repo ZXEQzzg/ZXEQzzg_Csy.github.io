@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BookOpen,
@@ -9,8 +9,10 @@ import {
   Globe,
   Languages,
   Mail,
+  MessageCircle,
   Moon,
   PanelsTopLeft,
+  Phone,
   Plus,
   Save,
   Sparkles,
@@ -19,6 +21,8 @@ import {
   Upload,
   Send,
   AlertCircle,
+  Bold,
+  Palette,
   Eye,
   RefreshCw,
   X,
@@ -70,6 +74,38 @@ function migrateContent(parsed: SiteContent): SiteContent {
     }));
   }
   return content;
+}
+
+// 按联系方式标签选图标（中英都认）
+function contactIcon(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes('email') || l.includes('mail') || l.includes('邮')) return <Mail size={16} />;
+  if (l.includes('github')) return <Github size={16} />;
+  if (l.includes('phone') || l.includes('tel') || l.includes('电话') || l.includes('手机'))
+    return <Phone size={16} />;
+  if (l.includes('wechat') || l.includes('weixin') || l.includes('微信'))
+    return <MessageCircle size={16} />;
+  return <Globe size={16} />;
+}
+
+// 富文本渲染：内容字段支持 <b>/<span style=...> 等，发布前做轻量消毒（去 script/on*/javascript:）
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+function RichText({
+  text,
+  className,
+  as: Tag = 'p',
+}: {
+  text: string;
+  className?: string;
+  as?: 'p' | 'span' | 'div' | 'h2';
+}) {
+  return <Tag className={className} dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
 }
 
 function getInitialContent(): SiteContent {
@@ -142,6 +178,14 @@ function Portfolio({
     <main className="appShell">
       <aside className="sidebar">
         <div className="sidebarScroller">
+          <div className="identityBlock">
+            <div className="mark">AI</div>
+            <div>
+              <p className="eyebrow">{content.profile.location[locale]}</p>
+              <h1>{content.profile.name}</h1>
+            </div>
+          </div>
+
           <div className="profilePhoto">
             {content.profile.avatar ? (
               <img src={assetUrl(content.profile.avatar)} alt={content.profile.name} />
@@ -153,30 +197,10 @@ function Portfolio({
             )}
           </div>
 
-          <div className="identityBlock">
-            <div className="mark">AI</div>
-            <div>
-              <p className="eyebrow">{content.profile.location[locale]}</p>
-              <h1>{content.profile.name}</h1>
-            </div>
-          </div>
-
-          <section className="profileCard">
-            <p className="headline">{content.profile.headline[locale]}</p>
-            <p>{content.profile.intro[locale]}</p>
-            <p className="research">{content.profile.research[locale]}</p>
-          </section>
-
           <section className="contactList">
             {content.profile.links.map((link) => (
               <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
-                {link.label === 'Email' ? (
-                  <Mail size={16} />
-                ) : link.label === 'GitHub' ? (
-                  <Github size={16} />
-                ) : (
-                  <Globe size={16} />
-                )}
+                {contactIcon(link.label)}
                 <span>{link.value}</span>
               </a>
             ))}
@@ -251,7 +275,8 @@ function Portfolio({
                 <Sparkles size={14} /> {sectionLabels.intro[locale]}
               </p>
               <h2>{content.profile.headline[locale]}</h2>
-              <p>{content.profile.intro[locale]}</p>
+              <RichText text={content.profile.intro[locale]} />
+              <RichText className="research" text={content.profile.research[locale]} />
             </section>
 
             <section id="skills" className="moduleSection" onMouseEnter={() => setActiveSection('skills')}>
@@ -331,7 +356,7 @@ function TimelineProjectCard({
         <strong>{project.title[locale]}</strong>
       </div>
       <div className="projectBody">
-        <p>{project.summary[locale]}</p>
+        <RichText text={project.summary[locale]} />
         {project.images && project.images.length > 0 && (
           <ProjectImageStrip
             images={project.images}
@@ -500,7 +525,7 @@ function InfoGrid({ modules, locale }: { modules: SiteContent['courses']; locale
       {modules.map((module) => (
         <article className="infoCard" key={module.id}>
           <h3>{module.title[locale]}</h3>
-          <p>{module.body[locale]}</p>
+          <RichText text={module.body[locale]} />
           <div className="tagCloud">
             {module.tags.map((tag) => (
               <span key={tag}>{tag}</span>
@@ -585,6 +610,87 @@ function TextInput({
   );
 }
 
+// 富文本编辑：工具条(加粗/字号/颜色色盘+hex)对选中文字包 HTML；也可直接手写代码
+const RICH_FONT_SIZES = [
+  { label: '小', value: '0.85em' },
+  { label: '大', value: '1.3em' },
+  { label: '特大', value: '1.6em' },
+];
+
+function RichTextArea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [color, setColor] = useState('#70d7c7');
+
+  function surround(before: string, after: string) {
+    const ta = ref.current;
+    const start = ta ? ta.selectionStart : value.length;
+    const end = ta ? ta.selectionEnd : value.length;
+    const picked = value.slice(start, end) || '文字';
+    onChange(value.slice(0, start) + before + picked + after + value.slice(end));
+  }
+
+  return (
+    <div className="editorField">
+      <span className="fieldLabel">{label}</span>
+      <div className="richToolbar">
+        <button type="button" title="加粗" onClick={() => surround('<b>', '</b>')}>
+          <Bold size={14} />
+        </button>
+        <select
+          title="字号"
+          value=""
+          onChange={(e) => {
+            if (e.target.value) surround(`<span style="font-size:${e.target.value}">`, '</span>');
+          }}
+        >
+          <option value="">字号</option>
+          {RICH_FONT_SIZES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <span className="colorPick">
+          <input type="color" value={color} title="选颜色" onChange={(e) => setColor(e.target.value)} />
+          <input
+            type="text"
+            className="hexInput"
+            value={color}
+            placeholder="#70d7c7"
+            onChange={(e) => setColor(e.target.value)}
+          />
+          <button
+            type="button"
+            title="给选中文字上色"
+            onClick={() => surround(`<span style="color:${color}">`, '</span>')}
+          >
+            <Palette size={14} />
+          </button>
+        </span>
+      </div>
+      <textarea
+        ref={ref}
+        className="fieldInput"
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <p className="fieldHint">
+        选中文字后点按钮加格式；也可直接写 HTML，如 &lt;b&gt;粗&lt;/b&gt;、&lt;span
+        style="color:#e0553d;font-size:1.4em"&gt;强调&lt;/span&gt;
+      </p>
+    </div>
+  );
+}
+
 function LocalizedTextInput({
   label,
   value,
@@ -598,7 +704,10 @@ function LocalizedTextInput({
   onChange: (value: string) => void;
   multiline?: boolean;
 }) {
-  return <TextInput label={label} value={value[locale]} onChange={onChange} multiline={multiline} />;
+  if (multiline) {
+    return <RichTextArea label={label} value={value[locale]} onChange={onChange} />;
+  }
+  return <TextInput label={label} value={value[locale]} onChange={onChange} />;
 }
 
 function StringArrayEditor({
