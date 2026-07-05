@@ -902,25 +902,207 @@ textarea {
   }
 }
 
-@media (max-width: 640px) {
-  .topbar,
-  .adminHeader,
-  .adminToolbar {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 14px 18px;
+.editorLayout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.editorTabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: start;
+  position: sticky;
+  top: 96px;
+  padding: 10px 0;
+}
+
+.editorTabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.editorTabs button:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.editorTabs button.active {
+  border-color: var(--soft);
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+.editorContent {
+  min-width: 0;
+}
+
+.editorField {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.fieldInput {
+  width: 100%;
+  min-height: 38px;
+  padding: 10px 11px;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  outline: 0;
+  resize: vertical;
+  background: color-mix(in srgb, var(--bg) 82%, black 18%);
+  color: var(--text);
+  font: inherit;
+}
+
+.nestedEditor {
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.nestedEditor .editorField {
+  margin-bottom: 10px;
+}
+
+.nestedEditor .editorField:last-child {
+  margin-bottom: 0;
+}
+
+.stringArrayEditor {
+  display: grid;
+  gap: 8px;
+}
+
+.stringArrayItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stringArrayItem .fieldInput {
+  flex: 1;
+}
+
+.iconDangerButton {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--danger);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.iconDangerButton:hover {
+  background: rgba(255, 155, 155, 0.15);
+}
+
+.publishInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 0.88rem;
+}
+
+.publishInfo p {
+  margin: 0;
+}
+
+.publishActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.fieldHint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.fieldHint code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--panel-strong);
+  font-size: 0.78rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (max-width: 980px) {
+  .editorLayout {
+    grid-template-columns: 1fr;
   }
 
-  .contentGrid,
-  .sidebar,
-  .editorGrid,
-  .adminStudio {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .settingsDock {
-    width: 100%;
+  .editorTabs {
+    position: static;
+    flex-direction: row;
     flex-wrap: wrap;
+    overflow-x: auto;
+    padding: 0;
+  }
+
+  .editorTabs button {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .publishActions {
+    flex-direction: column;
+  }
+
+  .publishActions .primaryButton,
+  .publishActions .ghostButton {
+    width: 100%;
+    margin: 0;
   }
 }

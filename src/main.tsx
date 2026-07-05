@@ -16,6 +16,15 @@ import {
   Sun,
   Trash2,
   Upload,
+  Send,
+  AlertCircle,
+  Eye,
+  RefreshCw,
+  X,
+  User,
+  Code,
+  Image,
+  GraduationCap,
 } from 'lucide-react';
 import {
   defaultContent,
@@ -26,10 +35,14 @@ import {
   type SiteContent,
   type ThemeMode,
   type TimelineProject,
+  type InfoModule,
+  type ProfileLink,
 } from './data/siteContent';
+import { makeLocalizedText, publishToGitHub } from './utils/editorUtils';
 import './styles.css';
 
 const contentStorageKey = 'zxeqzzg-portfolio-content-draft';
+const githubTokenKey = 'zxeqzzg-github-token';
 
 type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'courses' | 'major';
 
@@ -45,7 +58,6 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
 function getInitialContent(): SiteContent {
   const saved = window.localStorage.getItem(contentStorageKey);
   if (!saved) return defaultContent;
-
   try {
     return JSON.parse(saved) as SiteContent;
   } catch {
@@ -53,10 +65,7 @@ function getInitialContent(): SiteContent {
   }
 }
 
-function makeLocalizedText(value = ''): LocalizedText {
-  return { zh: value, en: value, ko: value };
-}
-
+// ===== App =====
 function App() {
   const [content, setContent] = useState<SiteContent>(getInitialContent);
   const [locale, setLocale] = useState<Locale>('zh');
@@ -90,6 +99,7 @@ function App() {
   return <Portfolio content={content} locale={locale} theme={theme} setLocale={setLocale} setTheme={setTheme} />;
 }
 
+// ===== Portfolio =====
 function Portfolio({
   content,
   locale,
@@ -262,6 +272,7 @@ function Portfolio({
   );
 }
 
+// ===== Sub-components =====
 function TimelineProjectCard({
   project,
   locale,
@@ -287,8 +298,14 @@ function TimelineProjectCard({
           <p>{project.summary[locale]}</p>
           <div className="detailGrid">
             <InfoPill label="Stack" value={project.stack.join(' / ')} />
-            <InfoPill label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'} value={project.role[locale]} />
-            <InfoPill label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'} value={project.outcome[locale]} />
+            <InfoPill
+              label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}
+              value={project.role[locale]}
+            />
+            <InfoPill
+              label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}
+              value={project.outcome[locale]}
+            />
           </div>
           <ul>
             {project.details.map((item) => (
@@ -358,6 +375,139 @@ function InfoGrid({ modules, locale }: { modules: SiteContent['courses']; locale
   );
 }
 
+// ===== Editor helpers =====
+type EditorTab = 'profile' | 'skills' | 'timeline' | 'gallery' | 'courses' | 'major' | 'publish';
+
+function TextInput({
+  label,
+  value,
+  onChange,
+  multiline = false,
+  rows = 3,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  multiline?: boolean;
+  rows?: number;
+}) {
+  return (
+    <label className="editorField">
+      <span className="fieldLabel">{label}</span>
+      {multiline ? (
+        <textarea className="fieldInput" value={value} onChange={(e) => onChange(e.target.value)} rows={rows} />
+      ) : (
+        <input className="fieldInput" type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+      )}
+    </label>
+  );
+}
+
+function LocalizedTextInput({
+  label,
+  value,
+  locale,
+  onChange,
+  multiline = false,
+}: {
+  label: string;
+  value: LocalizedText;
+  locale: Locale;
+  onChange: (value: string) => void;
+  multiline?: boolean;
+}) {
+  return <TextInput label={label} value={value[locale]} onChange={onChange} multiline={multiline} />;
+}
+
+function StringArrayEditor({
+  label,
+  items,
+  onChange,
+}: {
+  label: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  return (
+    <div className="editorField">
+      <span className="fieldLabel">{label}</span>
+      <div className="stringArrayEditor">
+        {items.map((item, i) => (
+          <div key={i} className="stringArrayItem">
+            <input
+              type="text"
+              value={item}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = e.target.value;
+                onChange(next);
+              }}
+              className="fieldInput"
+            />
+            <button
+              type="button"
+              className="iconDangerButton"
+              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+              title="删除"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+        <button type="button" className="compactButton" onClick={() => onChange([...items, ''])}>
+          <Plus size={14} /> 添加
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LocalizedTextArrayEditor({
+  label,
+  items,
+  locale,
+  onChange,
+}: {
+  label: string;
+  items: LocalizedText[];
+  locale: Locale;
+  onChange: (items: LocalizedText[]) => void;
+}) {
+  return (
+    <div className="editorField">
+      <span className="fieldLabel">{label}</span>
+      <div className="stringArrayEditor">
+        {items.map((item, i) => (
+          <div key={i} className="stringArrayItem">
+            <input
+              type="text"
+              value={item[locale]}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = { ...item, [locale]: e.target.value };
+                onChange(next);
+              }}
+              className="fieldInput"
+            />
+            <button
+              type="button"
+              className="iconDangerButton"
+              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+              title="删除"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+        <button type="button" className="compactButton" onClick={() => onChange([...items, makeLocalizedText()])}>
+          <Plus size={14} /> 添加
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ===== AdminEditor =====
 function AdminEditor({
   content,
   locale,
@@ -374,201 +524,617 @@ function AdminEditor({
   setTheme: (theme: ThemeMode) => void;
 }) {
   const [status, setStatus] = useState('本地草稿尚未保存');
-  const [selectedProjectId, setSelectedProjectId] = useState(content.galleryProjects[0]?.id ?? '');
-  const selectedProject = content.galleryProjects.find((project) => project.id === selectedProjectId) ?? content.galleryProjects[0];
+  const [activeTab, setActiveTab] = useState<EditorTab>('profile');
+  const [githubToken, setGithubToken] = useState(() => localStorage.getItem(githubTokenKey) || '');
+  const [isPublishing, setIsPublishing] = useState(false);
 
-  function commit(nextContent: SiteContent, message = '已更新预览，记得保存草稿') {
+  function commit(nextContent: SiteContent, message = '已更新预览') {
     setContent(nextContent);
     setStatus(message);
   }
 
   function saveDraft() {
-    window.localStorage.setItem(contentStorageKey, JSON.stringify(content));
-    setStatus('草稿已保存在当前浏览器。正式发布需要接 GitHub API 或提交代码。');
+    localStorage.setItem(contentStorageKey, JSON.stringify(content));
+    setStatus('草稿已保存在当前浏览器');
   }
 
   function resetDraft() {
-    window.localStorage.removeItem(contentStorageKey);
+    localStorage.removeItem(contentStorageKey);
     setContent(defaultContent);
-    setSelectedProjectId(defaultContent.galleryProjects[0]?.id ?? '');
-    setStatus('已恢复默认内容。');
+    setStatus('已恢复默认内容');
   }
 
-  function addGalleryProject() {
-    const index = content.galleryProjects.length + 1;
-    const newProject: GalleryProject = {
-      id: `academic-project-${Date.now()}`,
-      title: {
-        zh: `学术项目 ${String(index).padStart(2, '0')}`,
-        en: `Academic Project ${String(index).padStart(2, '0')}`,
-        ko: `학술 프로젝트 ${String(index).padStart(2, '0')}`,
-      },
-      cover: '/assets/ppt-cover-03.svg',
-      category: { zh: '待编辑项目', en: 'Editable Slot', ko: '편집 가능 항목' },
-      notes: [
-        makeLocalizedText('第一行简介。'),
-        makeLocalizedText('第二行说明。'),
-        makeLocalizedText('第三行成果。'),
-      ],
-      stack: ['AI', 'Research', 'Presentation'],
-      role: makeLocalizedText('待编辑'),
-      result: makeLocalizedText('待编辑'),
-      description: makeLocalizedText('待编辑项目描述。'),
-    };
-    commit({ ...content, galleryProjects: [...content.galleryProjects, newProject] }, '已加入新的学术项目卡片。');
-    setSelectedProjectId(newProject.id);
+  async function handlePublish() {
+    if (!githubToken.trim()) {
+      setStatus('请先输入 GitHub Token');
+      setActiveTab('publish');
+      return;
+    }
+    setIsPublishing(true);
+    setStatus('正在推送至 GitHub...');
+    const result = await publishToGitHub(content, githubToken.trim());
+    setStatus(result.message);
+    setIsPublishing(false);
   }
 
-  function deleteGalleryProject(projectId: string) {
-    const nextProjects = content.galleryProjects.filter((project) => project.id !== projectId);
-    commit({ ...content, galleryProjects: nextProjects }, '已删除选中的学术项目卡片。');
-    setSelectedProjectId(nextProjects[0]?.id ?? '');
-  }
-
+  // --- Profile editors ---
   function updateProfileField(field: 'name' | 'headline' | 'intro' | 'research' | 'location', value: string) {
     if (field === 'name') {
       commit({ ...content, profile: { ...content.profile, name: value } });
       return;
     }
+    const fieldValue = content.profile[field as keyof typeof content.profile];
+    if (typeof fieldValue === 'object' && fieldValue !== null && 'zh' in fieldValue) {
+      commit({
+        ...content,
+        profile: { ...content.profile, [field]: { ...(fieldValue as LocalizedText), [locale]: value } },
+      });
+    }
+  }
 
+  function updateProfileLink(index: number, field: keyof ProfileLink, value: string) {
+    const nextLinks = [...content.profile.links];
+    nextLinks[index] = { ...nextLinks[index], [field]: value };
+    commit({ ...content, profile: { ...content.profile, links: nextLinks } });
+  }
+
+  function addProfileLink() {
     commit({
       ...content,
       profile: {
         ...content.profile,
-        [field]: { ...content.profile[field], [locale]: value },
+        links: [...content.profile.links, { label: 'New', value: '', href: '#' }],
       },
     });
   }
 
-  function updateGalleryField(projectId: string, field: 'title' | 'category' | 'cover', value: string) {
-    const nextProjects = content.galleryProjects.map((project) => {
-      if (project.id !== projectId) return project;
-      if (field === 'cover') return { ...project, cover: value };
-      return { ...project, [field]: { ...project[field], [locale]: value } };
+  function removeProfileLink(index: number) {
+    commit({
+      ...content,
+      profile: { ...content.profile, links: content.profile.links.filter((_, i) => i !== index) },
     });
-    commit({ ...content, galleryProjects: nextProjects });
   }
 
-  function updateGalleryNote(projectId: string, noteIndex: number, value: string) {
-    const nextProjects = content.galleryProjects.map((project) => {
-      if (project.id !== projectId) return project;
-      const notes = [...project.notes];
-      notes[noteIndex] = { ...(notes[noteIndex] ?? makeLocalizedText()), [locale]: value };
-      return { ...project, notes };
+  // --- Skills editors ---
+  function updateSkillsTitle(value: string) {
+    commit({
+      ...content,
+      skills: { ...content.skills, title: { ...content.skills.title, [locale]: value } },
     });
-    commit({ ...content, galleryProjects: nextProjects });
   }
 
-  function updateGalleryCoverFromFile(projectId: string, file: File | undefined) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      updateGalleryField(projectId, 'cover', String(reader.result));
-      setStatus('图片已加入当前浏览器草稿。正式部署建议把图片放到 public/assets 后使用路径。');
+  function updateSkillGroupName(index: number, value: string) {
+    const nextGroups = [...content.skills.groups];
+    nextGroups[index] = { ...nextGroups[index], name: { ...nextGroups[index].name, [locale]: value } };
+    commit({ ...content, skills: { ...content.skills, groups: nextGroups } });
+  }
+
+  function updateSkillGroupItems(index: number, items: string[]) {
+    const nextGroups = [...content.skills.groups];
+    nextGroups[index] = { ...nextGroups[index], items };
+    commit({ ...content, skills: { ...content.skills, groups: nextGroups } });
+  }
+
+  function addSkillGroup() {
+    const index = content.skills.groups.length + 1;
+    commit({
+      ...content,
+      skills: {
+        ...content.skills,
+        groups: [...content.skills.groups, { name: makeLocalizedText(`技能组 ${index}`), items: [] }],
+      },
+    });
+  }
+
+  function removeSkillGroup(index: number) {
+    commit({
+      ...content,
+      skills: { ...content.skills, groups: content.skills.groups.filter((_, i) => i !== index) },
+    });
+  }
+
+  // --- Timeline editors ---
+  function addTimelineProject() {
+    const index = content.timelineProjects.length + 1;
+    const newProject: TimelineProject = {
+      id: `timeline-project-${Date.now()}`,
+      title: makeLocalizedText(`项目 ${index}`),
+      period: '2024 - 2025',
+      summary: makeLocalizedText('项目简介'),
+      stack: ['React', 'TypeScript'],
+      role: makeLocalizedText('负责内容'),
+      outcome: makeLocalizedText('项目成果'),
+      details: [makeLocalizedText('细节描述')],
     };
-    reader.readAsDataURL(file);
+    commit({ ...content, timelineProjects: [...content.timelineProjects, newProject] }, '已添加新的项目经历');
   }
+
+  function removeTimelineProject(id: string) {
+    commit(
+      { ...content, timelineProjects: content.timelineProjects.filter((p) => p.id !== id) },
+      '已删除项目经历'
+    );
+  }
+
+  function updateTimelineField(id: string, field: 'period' | 'stack', value: any) {
+    const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
+    commit({ ...content, timelineProjects: nextProjects });
+  }
+
+  function updateTimelineLocalized(
+    id: string,
+    field: 'title' | 'summary' | 'role' | 'outcome',
+    value: string
+  ) {
+    const nextProjects = content.timelineProjects.map((p) =>
+      p.id === id ? { ...p, [field]: { ...p[field], [locale]: value } } : p
+    );
+    commit({ ...content, timelineProjects: nextProjects });
+  }
+
+  function updateTimelineDetails(id: string, details: LocalizedText[]) {
+    const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, details } : p));
+    commit({ ...content, timelineProjects: nextProjects });
+  }
+
+  // --- Gallery editors ---
+  function addGalleryProject() {
+    const index = content.galleryProjects.length + 1;
+    const newProject: GalleryProject = {
+      id: `academic-project-${Date.now()}`,
+      title: { zh: `学术项目 ${index}`, en: `Academic Project ${index}`, ko: `학술 프로젝트 ${index}` },
+      cover: '/assets/ppt-cover-01.svg',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [makeLocalizedText('简介'), makeLocalizedText('说明'), makeLocalizedText('成果')],
+      stack: ['AI', 'Research'],
+      role: makeLocalizedText('负责内容'),
+      result: makeLocalizedText('项目成果'),
+      description: makeLocalizedText('项目描述'),
+    };
+    commit({ ...content, galleryProjects: [...content.galleryProjects, newProject] }, '已添加学术项目');
+  }
+
+  function removeGalleryProject(id: string) {
+    commit(
+      { ...content, galleryProjects: content.galleryProjects.filter((p) => p.id !== id) },
+      '已删除学术项目'
+    );
+  }
+
+  function updateGalleryField(id: string, field: 'cover' | 'stack', value: any) {
+    const nextProjects = content.galleryProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
+    commit({ ...content, galleryProjects: nextProjects });
+  }
+
+  function updateGalleryLocalized(
+    id: string,
+    field: 'title' | 'category' | 'role' | 'result' | 'description',
+    value: string
+  ) {
+    const nextProjects = content.galleryProjects.map((p) =>
+      p.id === id ? { ...p, [field]: { ...p[field], [locale]: value } } : p
+    );
+    commit({ ...content, galleryProjects: nextProjects });
+  }
+
+  function updateGalleryNotes(id: string, notes: LocalizedText[]) {
+    const nextProjects = content.galleryProjects.map((p) => (p.id === id ? { ...p, notes } : p));
+    commit({ ...content, galleryProjects: nextProjects });
+  }
+
+  // --- Courses editors ---
+  function addCourse() {
+    const index = content.courses.length + 1;
+    const newCourse: InfoModule = {
+      id: `course-${Date.now()}`,
+      title: makeLocalizedText(`课程 ${index}`),
+      body: makeLocalizedText('课程描述'),
+      tags: ['AI', 'Design'],
+    };
+    commit({ ...content, courses: [...content.courses, newCourse] }, '已添加课程');
+  }
+
+  function removeCourse(id: string) {
+    commit({ ...content, courses: content.courses.filter((c) => c.id !== id) }, '已删除课程');
+  }
+
+  function updateCourseField(id: string, field: 'title' | 'body', value: string) {
+    const nextCourses = content.courses.map((c) =>
+      c.id === id ? { ...c, [field]: { ...c[field], [locale]: value } } : c
+    );
+    commit({ ...content, courses: nextCourses });
+  }
+
+  function updateCourseTags(id: string, tags: string[]) {
+    const nextCourses = content.courses.map((c) => (c.id === id ? { ...c, tags } : c));
+    commit({ ...content, courses: nextCourses });
+  }
+
+  // --- Major editors ---
+  function addMajor() {
+    const index = content.major.length + 1;
+    const newMajor: InfoModule = {
+      id: `major-${Date.now()}`,
+      title: makeLocalizedText(`专业模块 ${index}`),
+      body: makeLocalizedText('专业描述'),
+      tags: ['Machine Learning'],
+    };
+    commit({ ...content, major: [...content.major, newMajor] }, '已添加专业模块');
+  }
+
+  function removeMajor(id: string) {
+    commit({ ...content, major: content.major.filter((m) => m.id !== id) }, '已删除专业模块');
+  }
+
+  function updateMajorField(id: string, field: 'title' | 'body', value: string) {
+    const nextMajor = content.major.map((m) =>
+      m.id === id ? { ...m, [field]: { ...m[field], [locale]: value } } : m
+    );
+    commit({ ...content, major: nextMajor });
+  }
+
+  function updateMajorTags(id: string, tags: string[]) {
+    const nextMajor = content.major.map((m) => (m.id === id ? { ...m, tags } : m));
+    commit({ ...content, major: nextMajor });
+  }
+
+  // --- Tab rendering ---
+  const tabs: { key: EditorTab; label: string; icon: ReactNode }[] = [
+    { key: 'profile', label: '个人介绍', icon: <User size={16} /> },
+    { key: 'skills', label: '技术栈', icon: <Code size={16} /> },
+    { key: 'timeline', label: '项目经历', icon: <BriefcaseBusiness size={16} /> },
+    { key: 'gallery', label: '学术画廊', icon: <Image size={16} /> },
+    { key: 'courses', label: '课程介绍', icon: <BookOpen size={16} /> },
+    { key: 'major', label: '专业介绍', icon: <GraduationCap size={16} /> },
+    { key: 'publish', label: '发布', icon: <Send size={16} /> },
+  ];
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'profile':
+        return (
+          <div className="editPanel">
+            <h3>个人介绍</h3>
+            <TextInput
+              label="姓名"
+              value={content.profile.name}
+              onChange={(v) => updateProfileField('name', v)}
+            />
+            <LocalizedTextInput
+              label="标题"
+              value={content.profile.headline}
+              locale={locale}
+              onChange={(v) => updateProfileField('headline', v)}
+            />
+            <LocalizedTextInput
+              label="简介"
+              value={content.profile.intro}
+              locale={locale}
+              onChange={(v) => updateProfileField('intro', v)}
+              multiline
+            />
+            <LocalizedTextInput
+              label="研究方向"
+              value={content.profile.research}
+              locale={locale}
+              onChange={(v) => updateProfileField('research', v)}
+              multiline
+            />
+            <LocalizedTextInput
+              label="所在地"
+              value={content.profile.location}
+              locale={locale}
+              onChange={(v) => updateProfileField('location', v)}
+            />
+
+            <div className="editorField">
+              <span className="fieldLabel">联系方式</span>
+              {content.profile.links.map((link, i) => (
+                <div key={i} className="nestedEditor">
+                  <TextInput label="标签" value={link.label} onChange={(v) => updateProfileLink(i, 'label', v)} />
+                  <TextInput label="值" value={link.value} onChange={(v) => updateProfileLink(i, 'value', v)} />
+                  <TextInput label="链接" value={link.href} onChange={(v) => updateProfileLink(i, 'href', v)} />
+                  <button type="button" className="dangerButton" onClick={() => removeProfileLink(i)}>
+                    <Trash2 size={14} /> 删除
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="compactButton" onClick={addProfileLink}>
+                <Plus size={14} /> 添加联系方式
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'skills':
+        return (
+          <div className="editPanel">
+            <h3>技术栈</h3>
+            <LocalizedTextInput
+              label="标题"
+              value={content.skills.title}
+              locale={locale}
+              onChange={updateSkillsTitle}
+            />
+            {content.skills.groups.map((group, i) => (
+              <div key={i} className="nestedEditor">
+                <LocalizedTextInput
+                  label="组名称"
+                  value={group.name}
+                  locale={locale}
+                  onChange={(v) => updateSkillGroupName(i, v)}
+                />
+                <StringArrayEditor label="技能列表" items={group.items} onChange={(items) => updateSkillGroupItems(i, items)} />
+                <button type="button" className="dangerButton" onClick={() => removeSkillGroup(i)}>
+                  <Trash2 size={14} /> 删除该组
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addSkillGroup}>
+              <Plus size={14} /> 添加技能组
+            </button>
+          </div>
+        );
+
+      case 'timeline':
+        return (
+          <div className="editPanel">
+            <h3>项目经历</h3>
+            {content.timelineProjects.map((project) => (
+              <div key={project.id} className="nestedEditor">
+                <LocalizedTextInput
+                  label="项目名称"
+                  value={project.title}
+                  locale={locale}
+                  onChange={(v) => updateTimelineLocalized(project.id, 'title', v)}
+                />
+                <TextInput label="时间段" value={project.period} onChange={(v) => updateTimelineField(project.id, 'period', v)} />
+                <LocalizedTextInput
+                  label="简介"
+                  value={project.summary}
+                  locale={locale}
+                  onChange={(v) => updateTimelineLocalized(project.id, 'summary', v)}
+                  multiline
+                />
+                <StringArrayEditor
+                  label="技术栈"
+                  items={project.stack}
+                  onChange={(v) => updateTimelineField(project.id, 'stack', v)}
+                />
+                <LocalizedTextInput
+                  label="职责"
+                  value={project.role}
+                  locale={locale}
+                  onChange={(v) => updateTimelineLocalized(project.id, 'role', v)}
+                />
+                <LocalizedTextInput
+                  label="成果"
+                  value={project.outcome}
+                  locale={locale}
+                  onChange={(v) => updateTimelineLocalized(project.id, 'outcome', v)}
+                />
+                <LocalizedTextArrayEditor
+                  label="详细描述"
+                  items={project.details}
+                  locale={locale}
+                  onChange={(v) => updateTimelineDetails(project.id, v)}
+                />
+                <button type="button" className="dangerButton" onClick={() => removeTimelineProject(project.id)}>
+                  <Trash2 size={14} /> 删除项目
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addTimelineProject}>
+              <Plus size={14} /> 添加项目
+            </button>
+          </div>
+        );
+
+      case 'gallery':
+        return (
+          <div className="editPanel">
+            <h3>学术画廊</h3>
+            {content.galleryProjects.map((project) => (
+              <div key={project.id} className="nestedEditor">
+                <LocalizedTextInput
+                  label="项目名称"
+                  value={project.title}
+                  locale={locale}
+                  onChange={(v) => updateGalleryLocalized(project.id, 'title', v)}
+                />
+                <LocalizedTextInput
+                  label="分类"
+                  value={project.category}
+                  locale={locale}
+                  onChange={(v) => updateGalleryLocalized(project.id, 'category', v)}
+                />
+                <TextInput
+                  label="封面路径"
+                  value={project.cover}
+                  onChange={(v) => updateGalleryField(project.id, 'cover', v)}
+                />
+                <LocalizedTextArrayEditor
+                  label="项目说明"
+                  items={project.notes}
+                  locale={locale}
+                  onChange={(v) => updateGalleryNotes(project.id, v)}
+                />
+                <StringArrayEditor
+                  label="技术栈"
+                  items={project.stack}
+                  onChange={(v) => updateGalleryField(project.id, 'stack', v)}
+                />
+                <LocalizedTextInput
+                  label="职责"
+                  value={project.role}
+                  locale={locale}
+                  onChange={(v) => updateGalleryLocalized(project.id, 'role', v)}
+                />
+                <LocalizedTextInput
+                  label="成果"
+                  value={project.result}
+                  locale={locale}
+                  onChange={(v) => updateGalleryLocalized(project.id, 'result', v)}
+                />
+                <LocalizedTextInput
+                  label="描述"
+                  value={project.description}
+                  locale={locale}
+                  onChange={(v) => updateGalleryLocalized(project.id, 'description', v)}
+                  multiline
+                />
+                <button type="button" className="dangerButton" onClick={() => removeGalleryProject(project.id)}>
+                  <Trash2 size={14} /> 删除项目
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addGalleryProject}>
+              <Plus size={14} /> 添加项目
+            </button>
+          </div>
+        );
+
+      case 'courses':
+        return (
+          <div className="editPanel">
+            <h3>课程介绍</h3>
+            {content.courses.map((course) => (
+              <div key={course.id} className="nestedEditor">
+                <LocalizedTextInput
+                  label="课程名称"
+                  value={course.title}
+                  locale={locale}
+                  onChange={(v) => updateCourseField(course.id, 'title', v)}
+                />
+                <LocalizedTextInput
+                  label="描述"
+                  value={course.body}
+                  locale={locale}
+                  onChange={(v) => updateCourseField(course.id, 'body', v)}
+                  multiline
+                />
+                <StringArrayEditor label="标签" items={course.tags} onChange={(v) => updateCourseTags(course.id, v)} />
+                <button type="button" className="dangerButton" onClick={() => removeCourse(course.id)}>
+                  <Trash2 size={14} /> 删除课程
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addCourse}>
+              <Plus size={14} /> 添加课程
+            </button>
+          </div>
+        );
+
+      case 'major':
+        return (
+          <div className="editPanel">
+            <h3>专业介绍</h3>
+            {content.major.map((m) => (
+              <div key={m.id} className="nestedEditor">
+                <LocalizedTextInput
+                  label="模块名称"
+                  value={m.title}
+                  locale={locale}
+                  onChange={(v) => updateMajorField(m.id, 'title', v)}
+                />
+                <LocalizedTextInput
+                  label="描述"
+                  value={m.body}
+                  locale={locale}
+                  onChange={(v) => updateMajorField(m.id, 'body', v)}
+                  multiline
+                />
+                <StringArrayEditor label="标签" items={m.tags} onChange={(v) => updateMajorTags(m.id, v)} />
+                <button type="button" className="dangerButton" onClick={() => removeMajor(m.id)}>
+                  <Trash2 size={14} /> 删除模块
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addMajor}>
+              <Plus size={14} /> 添加模块
+            </button>
+          </div>
+        );
+
+      case 'publish':
+        return (
+          <div className="editPanel">
+            <h3>发布到 GitHub</h3>
+            <div className="publishInfo">
+              <AlertCircle size={16} />
+              <p>发布功能会将当前编辑内容推送到 GitHub 仓库，自动触发 Actions 重新构建部署。</p>
+            </div>
+            <div className="editorField">
+              <span className="fieldLabel">GitHub Personal Access Token</span>
+              <input
+                type="password"
+                className="fieldInput"
+                value={githubToken}
+                onChange={(e) => {
+                  setGithubToken(e.target.value);
+                  localStorage.setItem(githubTokenKey, e.target.value);
+                }}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              />
+              <p className="fieldHint">
+                Token 需要 <code>repo</code> 权限。获取方式：GitHub Settings → Developer settings → Personal access tokens → Tokens
+                (classic)
+              </p>
+            </div>
+            <div className="publishActions">
+              <button type="button" className="primaryButton" onClick={handlePublish} disabled={isPublishing}>
+                {isPublishing ? <RefreshCw size={16} className="spin" /> : <Send size={16} />}
+                {isPublishing ? ' 发布中...' : ' 发布到 GitHub'}
+              </button>
+              <a
+                className="ghostButton"
+                href="https://github.com/ZXEQzzg/ZXEQzzg_Csy.github.io/actions"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Eye size={16} /> 查看 Actions 状态
+              </a>
+            </div>
+          </div>
+        );
+    }
+  };
 
   const adminTools = (
     <section className="adminStudio">
       <div className="adminToolbar">
         <div>
           <p className="eyebrow">Private editing mode</p>
-          <h2>你看到的是公开页面，只是多了编辑能力</h2>
+          <h2>编辑模式 — 所有内容可编辑</h2>
         </div>
         <div className="adminActions">
           <button type="button" className="primaryButton" onClick={saveDraft}>
             <Save size={16} /> 保存草稿
           </button>
           <button type="button" className="ghostButton" onClick={resetDraft}>
-            重置
+            <RefreshCw size={16} /> 重置
           </button>
           <a className="ghostButton" href="/#">
-            查看公开页
+            <Eye size={16} /> 查看公开页
           </a>
         </div>
       </div>
 
-      <div className="editorPanels">
-        <section className="editPanel">
-          <h3>个人介绍</h3>
-          <label>
-            名称
-            <input value={content.profile.name} onChange={(event) => updateProfileField('name', event.target.value)} />
-          </label>
-          <label>
-            标题
-            <textarea value={content.profile.headline[locale]} onChange={(event) => updateProfileField('headline', event.target.value)} />
-          </label>
-          <label>
-            简介
-            <textarea value={content.profile.intro[locale]} onChange={(event) => updateProfileField('intro', event.target.value)} />
-          </label>
-          <label>
-            研究方向
-            <textarea value={content.profile.research[locale]} onChange={(event) => updateProfileField('research', event.target.value)} />
-          </label>
-        </section>
-
-        <section className="editPanel">
-          <div className="panelHeader">
-            <h3>学术项目画廊</h3>
-            <button type="button" className="compactButton" onClick={addGalleryProject}>
-              <Plus size={15} /> 添加
+      <div className="editorLayout">
+        <nav className="editorTabs">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={activeTab === tab.key ? 'active' : ''}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
             </button>
-          </div>
-          <div className="projectSelector">
-            {content.galleryProjects.map((project) => (
-              <button
-                key={project.id}
-                className={project.id === selectedProject?.id ? 'active' : ''}
-                type="button"
-                onClick={() => setSelectedProjectId(project.id)}
-              >
-                {project.title[locale]}
-              </button>
-            ))}
-          </div>
-
-          {selectedProject && (
-            <div className="selectedEditor">
-              <label>
-                项目标题
-                <input
-                  value={selectedProject.title[locale]}
-                  onChange={(event) => updateGalleryField(selectedProject.id, 'title', event.target.value)}
-                />
-              </label>
-              <label>
-                分类
-                <input
-                  value={selectedProject.category[locale]}
-                  onChange={(event) => updateGalleryField(selectedProject.id, 'category', event.target.value)}
-                />
-              </label>
-              <label>
-                封面路径或图片链接
-                <input value={selectedProject.cover} onChange={(event) => updateGalleryField(selectedProject.id, 'cover', event.target.value)} />
-              </label>
-              <label className="fileButton">
-                <Upload size={15} /> 选择图片预览
-                <input type="file" accept="image/*" onChange={(event) => updateGalleryCoverFromFile(selectedProject.id, event.target.files?.[0])} />
-              </label>
-              {[0, 1, 2].map((index) => (
-                <label key={index}>
-                  第 {index + 1} 行说明
-                  <input
-                    value={selectedProject.notes[index]?.[locale] ?? ''}
-                    onChange={(event) => updateGalleryNote(selectedProject.id, index, event.target.value)}
-                  />
-                </label>
-              ))}
-              <button type="button" className="dangerButton" onClick={() => deleteGalleryProject(selectedProject.id)}>
-                <Trash2 size={15} /> 删除这个项目
-              </button>
-            </div>
-          )}
-        </section>
+          ))}
+        </nav>
+        <div className="editorContent">{renderTabContent()}</div>
       </div>
       <p className="statusLine">{status}</p>
     </section>
@@ -586,8 +1152,9 @@ function AdminEditor({
   );
 }
 
+// ===== Mount =====
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 );
