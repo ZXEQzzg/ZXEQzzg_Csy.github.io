@@ -4,6 +4,16 @@ export function makeLocalizedText(value = ''): LocalizedText {
   return { zh: value, en: value, ko: value };
 }
 
+// 把内容里的资源路径（如 /assets/xxx.png）解析成带 Vite base 前缀的可用 URL。
+// 生产部署在 https://ZXEQzzg.github.io/ZXEQzzg_Csy.github.io/ 子路径下，
+// 裸 /assets/... 会 404，必须拼上 import.meta.env.BASE_URL；空格/中韩文件名用 encodeURI 处理。
+export function assetUrl(path: string): string {
+  if (!path) return path;
+  if (/^(https?:)?\/\//.test(path) || path.startsWith('data:')) return path;
+  const base = import.meta.env.BASE_URL || '/';
+  return base + encodeURI(path.replace(/^\/+/, ''));
+}
+
 // ===== 序列化：SiteContent → TypeScript 文件字符串 =====
 function q(s: string): string {
   return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')}'`;
@@ -37,6 +47,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  title: LocalizedText;`);
   lines.push(`  period: string;`);
   lines.push(`  summary: LocalizedText;`);
+  lines.push(`  images: string[];`);
   lines.push(`  stack: string[];`);
   lines.push(`  role: LocalizedText;`);
   lines.push(`  outcome: LocalizedText;`);
@@ -65,6 +76,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`export type SiteContent = {`);
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
+  lines.push(`    avatar: string;`);
   lines.push(`    headline: LocalizedText;`);
   lines.push(`    intro: LocalizedText;`);
   lines.push(`    research: LocalizedText;`);
@@ -87,6 +99,7 @@ export function serializeSiteContent(data: SiteContent): string {
 
   lines.push(`  profile: {`);
   lines.push(`    name: ${q(data.profile.name)},`);
+  lines.push(`    avatar: ${q(data.profile.avatar ?? '')},`);
   lines.push(`    headline: ${genLT(data.profile.headline)},`);
   lines.push(`    intro: ${genLT(data.profile.intro)},`);
   lines.push(`    research: ${genLT(data.profile.research)},`);
@@ -114,6 +127,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      title: ${genLT(tp.title)},`);
     lines.push(`      period: ${q(tp.period)},`);
     lines.push(`      summary: ${genLT(tp.summary)},`);
+    lines.push(`      images: ${genStrArr(tp.images ?? [])},`);
     lines.push(`      stack: ${genStrArr(tp.stack)},`);
     lines.push(`      role: ${genLT(tp.role)},`);
     lines.push(`      outcome: ${genLT(tp.outcome)},`);
@@ -171,6 +185,65 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`};`);
 
   return lines.join('\n');
+}
+
+// ===== 编辑页直传图片到仓库 public/assets/ =====
+// 选图 → base64 → GitHub contents API PUT 到 public/assets/<唯一文件名> →
+// 返回 /assets/<文件名>（走 assetUrl 拼 base）。文件名做安全化+唯一化，避免覆盖与特殊字符。
+export async function uploadImageToGitHub(
+  file: File,
+  token: string
+): Promise<{ success: boolean; message: string; path?: string }> {
+  const owner = 'ZXEQzzg';
+  const repo = 'ZXEQzzg_Csy.github.io';
+  const branch = 'main';
+
+  const dot = file.name.lastIndexOf('.');
+  const ext = dot >= 0 ? file.name.slice(dot).toLowerCase().replace(/[^.a-z0-9]/g, '') : '';
+  const stem =
+    (dot >= 0 ? file.name.slice(0, dot) : file.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'image';
+  const unique = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
+  const filename = `${stem}-${unique}${ext}`;
+  const repoPath = `public/assets/${filename}`;
+
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const base64 = btoa(binary);
+
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: `Upload image ${filename} from web editor`,
+        content: base64,
+        branch,
+      }),
+    });
+
+    if (res.ok) {
+      return { success: true, message: '图片上传成功', path: `/assets/${filename}` };
+    }
+    const err = await res.json();
+    return { success: false, message: `图片上传失败: ${err.message}` };
+  } catch (error) {
+    return {
+      success: false,
+      message: `网络错误: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 // ===== 发布到 GitHub =====

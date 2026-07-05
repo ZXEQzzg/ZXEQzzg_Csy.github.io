@@ -3,15 +3,16 @@ import { createRoot } from 'react-dom/client';
 import {
   BookOpen,
   BriefcaseBusiness,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Github,
+  Globe,
   Languages,
   Mail,
   Moon,
   PanelsTopLeft,
   Plus,
   Save,
-  Settings,
   Sparkles,
   Sun,
   Trash2,
@@ -38,7 +39,7 @@ import {
   type InfoModule,
   type ProfileLink,
 } from './data/siteContent';
-import { makeLocalizedText, publishToGitHub } from './utils/editorUtils';
+import { assetUrl, makeLocalizedText, publishToGitHub, uploadImageToGitHub } from './utils/editorUtils';
 import './styles.css';
 
 const contentStorageKey = 'zxeqzzg-portfolio-content-draft';
@@ -49,17 +50,33 @@ type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'courses' | 'm
 const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   intro: { zh: '个人介绍', en: 'Profile', ko: '소개' },
   skills: { zh: '技术栈', en: 'Stack', ko: '스택' },
-  experience: { zh: '主要项目经历', en: 'Projects', ko: '프로젝트' },
+  experience: { zh: '主要经历', en: 'Experience', ko: '주요 경력' },
   gallery: { zh: '学术驱动项目', en: 'Academic Gallery', ko: '학술 갤러리' },
   courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   major: { zh: '专业介绍', en: 'Major', ko: '전공' },
 };
 
+// 把旧草稿补齐到最新结构：老的 localStorage 草稿没有 avatar / images 字段，
+// 不补齐的话编辑器里 images.map / avatar 输入会炸，所以在入口统一 normalize。
+function migrateContent(parsed: SiteContent): SiteContent {
+  const content = parsed;
+  if (content.profile && typeof content.profile.avatar !== 'string') {
+    content.profile.avatar = '';
+  }
+  if (Array.isArray(content.timelineProjects)) {
+    content.timelineProjects = content.timelineProjects.map((p) => ({
+      ...p,
+      images: Array.isArray(p.images) ? p.images : [],
+    }));
+  }
+  return content;
+}
+
 function getInitialContent(): SiteContent {
   const saved = window.localStorage.getItem(contentStorageKey);
   if (!saved) return defaultContent;
   try {
-    return JSON.parse(saved) as SiteContent;
+    return migrateContent(JSON.parse(saved) as SiteContent);
   } catch {
     return defaultContent;
   }
@@ -116,21 +133,34 @@ function Portfolio({
   adminTools?: ReactNode;
 }) {
   const [activeSection, setActiveSection] = useState<SectionKey>('intro');
-  const [openProjectId, setOpenProjectId] = useState(content.timelineProjects[0]?.id ?? '');
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const sections = Object.keys(sectionLabels) as SectionKey[];
+
+  const openLightbox = (images: string[], index: number) => setLightbox({ images, index });
 
   return (
     <main className="appShell">
       <aside className="sidebar">
-        <div className="identityBlock">
-          <div className="mark">AI</div>
-          <div>
-            <p className="eyebrow">{content.profile.location[locale]}</p>
-            <h1>{content.profile.name}</h1>
-          </div>
-        </div>
-
         <div className="sidebarScroller">
+          <div className="profilePhoto">
+            {content.profile.avatar ? (
+              <img src={assetUrl(content.profile.avatar)} alt={content.profile.name} />
+            ) : (
+              <div className="profilePhotoFallback">
+                <User size={30} />
+                <span>个人照片</span>
+              </div>
+            )}
+          </div>
+
+          <div className="identityBlock">
+            <div className="mark">AI</div>
+            <div>
+              <p className="eyebrow">{content.profile.location[locale]}</p>
+              <h1>{content.profile.name}</h1>
+            </div>
+          </div>
+
           <section className="profileCard">
             <p className="headline">{content.profile.headline[locale]}</p>
             <p>{content.profile.intro[locale]}</p>
@@ -140,7 +170,13 @@ function Portfolio({
           <section className="contactList">
             {content.profile.links.map((link) => (
               <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
-                {link.label === 'Email' ? <Mail size={16} /> : <Github size={16} />}
+                {link.label === 'Email' ? (
+                  <Mail size={16} />
+                ) : link.label === 'GitHub' ? (
+                  <Github size={16} />
+                ) : (
+                  <Globe size={16} />
+                )}
                 <span>{link.value}</span>
               </a>
             ))}
@@ -188,9 +224,6 @@ function Portfolio({
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="iconButton" type="button" aria-label="Settings" title="Settings">
-              <Settings size={18} />
-            </button>
           </div>
         </header>
 
@@ -206,7 +239,8 @@ function Portfolio({
                 onMouseEnter={() => setActiveSection(section)}
                 onFocus={() => setActiveSection(section)}
               >
-                <span>{sectionLabels[section][locale]}</span>
+                <span className="railDot" aria-hidden="true" />
+                <span className="railLabel">{sectionLabels[section][locale]}</span>
               </a>
             ))}
           </nav>
@@ -238,14 +272,13 @@ function Portfolio({
 
             <section id="experience" className="moduleSection" onMouseEnter={() => setActiveSection('experience')}>
               <SectionHeading icon={<BriefcaseBusiness size={18} />} title={sectionLabels.experience[locale]} />
-              <div className="accordion">
+              <div className="experienceList">
                 {content.timelineProjects.map((project) => (
                   <TimelineProjectCard
                     key={project.id}
                     project={project}
                     locale={locale}
-                    isOpen={openProjectId === project.id}
-                    onToggle={() => setOpenProjectId(openProjectId === project.id ? '' : project.id)}
+                    onOpenImages={openLightbox}
                   />
                 ))}
               </div>
@@ -268,6 +301,15 @@ function Portfolio({
           </div>
         </div>
       </section>
+
+      {lightbox && (
+        <Lightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndex={(index) => setLightbox({ images: lightbox.images, index })}
+        />
+      )}
     </main>
   );
 }
@@ -276,45 +318,140 @@ function Portfolio({
 function TimelineProjectCard({
   project,
   locale,
-  isOpen,
-  onToggle,
+  onOpenImages,
 }: {
   project: TimelineProject;
   locale: Locale;
-  isOpen: boolean;
-  onToggle: () => void;
+  onOpenImages: (images: string[], index: number) => void;
 }) {
   return (
-    <article className={`projectPanel ${isOpen ? 'open' : ''}`}>
-      <button type="button" onClick={onToggle}>
-        <span>
-          <small>{project.period}</small>
-          <strong>{project.title[locale]}</strong>
-        </span>
-        <ChevronDown size={18} />
-      </button>
-      {isOpen && (
-        <div className="projectBody">
-          <p>{project.summary[locale]}</p>
-          <div className="detailGrid">
-            <InfoPill label="Stack" value={project.stack.join(' / ')} />
-            <InfoPill
-              label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}
-              value={project.role[locale]}
-            />
-            <InfoPill
-              label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}
-              value={project.outcome[locale]}
-            />
-          </div>
-          <ul>
-            {project.details.map((item) => (
-              <li key={item.en}>{item[locale]}</li>
-            ))}
-          </ul>
+    <article className="projectPanel">
+      <div className="projectHead">
+        <small>{project.period}</small>
+        <strong>{project.title[locale]}</strong>
+      </div>
+      <div className="projectBody">
+        <p>{project.summary[locale]}</p>
+        {project.images && project.images.length > 0 && (
+          <ProjectImageStrip
+            images={project.images}
+            title={project.title[locale]}
+            onOpenImages={onOpenImages}
+          />
+        )}
+        <div className="detailGrid">
+          <InfoPill label="Stack" value={project.stack.join(' / ')} />
+          <InfoPill
+            label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}
+            value={project.role[locale]}
+          />
+          <InfoPill
+            label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}
+            value={project.outcome[locale]}
+          />
         </div>
-      )}
+        <ul>
+          {project.details.map((item) => (
+            <li key={item.en}>{item[locale]}</li>
+          ))}
+        </ul>
+      </div>
     </article>
+  );
+}
+
+// 项目图片模块：横向自适应滚动条，点击任意图放大到看图 lightbox
+function ProjectImageStrip({
+  images,
+  title,
+  onOpenImages,
+}: {
+  images: string[];
+  title: string;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  return (
+    <div className={`imageStrip ${images.length === 1 ? 'single' : ''}`}>
+      {images.map((src, i) => (
+        <button
+          type="button"
+          className="imageStripItem"
+          key={`${src}-${i}`}
+          onClick={() => onOpenImages(images, i)}
+          aria-label={`${title} 图片 ${i + 1}`}
+        >
+          <img src={assetUrl(src)} alt={`${title} ${i + 1}`} loading="lazy" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// 看图 lightbox：遮罩全屏、左右切换、Esc/方向键、点击遮罩关闭
+function Lightbox({
+  images,
+  index,
+  onClose,
+  onIndex,
+}: {
+  images: string[];
+  index: number;
+  onClose: () => void;
+  onIndex: (index: number) => void;
+}) {
+  const count = images.length;
+  const go = (delta: number) => onIndex((index + delta + count) % count);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight') onIndex((index + 1) % count);
+      else if (e.key === 'ArrowLeft') onIndex((index - 1 + count) % count);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [index, count, onClose, onIndex]);
+
+  return (
+    <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
+      <button type="button" className="lightboxClose" onClick={onClose} aria-label="关闭">
+        <X size={22} />
+      </button>
+      {count > 1 && (
+        <button
+          type="button"
+          className="lightboxNav prev"
+          onClick={(e) => {
+            e.stopPropagation();
+            go(-1);
+          }}
+          aria-label="上一张"
+        >
+          <ChevronLeft size={26} />
+        </button>
+      )}
+      <figure className="lightboxStage" onClick={(e) => e.stopPropagation()}>
+        <img src={assetUrl(images[index])} alt={`图片 ${index + 1}`} />
+        {count > 1 && (
+          <figcaption className="lightboxCount">
+            {index + 1} / {count}
+          </figcaption>
+        )}
+      </figure>
+      {count > 1 && (
+        <button
+          type="button"
+          className="lightboxNav next"
+          onClick={(e) => {
+            e.stopPropagation();
+            go(1);
+          }}
+          aria-label="下一张"
+        >
+          <ChevronRight size={26} />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -323,7 +460,7 @@ function GalleryGrid({ projects, locale }: { projects: GalleryProject[]; locale:
     <div className="academicGallery">
       {projects.map((project) => (
         <article className="galleryCard" key={project.id}>
-          <img src={project.cover} alt={project.title[locale]} />
+          <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" />
           <div className="galleryCardBody">
             <p className="galleryCategory">{project.category[locale]}</p>
             <h3>{project.title[locale]}</h3>
@@ -377,6 +514,51 @@ function InfoGrid({ modules, locale }: { modules: SiteContent['courses']; locale
 
 // ===== Editor helpers =====
 type EditorTab = 'profile' | 'skills' | 'timeline' | 'gallery' | 'courses' | 'major' | 'publish';
+
+// 选图直传到仓库 assets，成功后回调返回 /assets/xxx 路径
+function ImageUploadButton({
+  token,
+  onUploaded,
+  setStatus,
+  label = '上传图片',
+}: {
+  token: string;
+  onUploaded: (path: string) => void;
+  setStatus: (status: string) => void;
+  label?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <label className={`fileButton ${busy ? 'busy' : ''}`}>
+      {busy ? <RefreshCw size={14} className="spin" /> : <Upload size={14} />}
+      <span>{busy ? ' 上传中...' : ` ${label}`}</span>
+      <input
+        type="file"
+        accept="image/*"
+        disabled={busy}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          if (!token.trim()) {
+            setStatus('请先到「发布」标签填入 GitHub Token，再上传图片');
+            return;
+          }
+          setBusy(true);
+          setStatus(`正在上传 ${file.name} ...`);
+          const res = await uploadImageToGitHub(file, token.trim());
+          setBusy(false);
+          if (res.success && res.path) {
+            onUploaded(res.path);
+            setStatus(`图片已上传并填入：${res.path}`);
+          } else {
+            setStatus(res.message);
+          }
+        }}
+      />
+    </label>
+  );
+}
 
 function TextInput({
   label,
@@ -558,9 +740,12 @@ function AdminEditor({
   }
 
   // --- Profile editors ---
-  function updateProfileField(field: 'name' | 'headline' | 'intro' | 'research' | 'location', value: string) {
-    if (field === 'name') {
-      commit({ ...content, profile: { ...content.profile, name: value } });
+  function updateProfileField(
+    field: 'name' | 'avatar' | 'headline' | 'intro' | 'research' | 'location',
+    value: string
+  ) {
+    if (field === 'name' || field === 'avatar') {
+      commit({ ...content, profile: { ...content.profile, [field]: value } });
       return;
     }
     const fieldValue = content.profile[field as keyof typeof content.profile];
@@ -641,6 +826,7 @@ function AdminEditor({
       title: makeLocalizedText(`项目 ${index}`),
       period: '2024 - 2025',
       summary: makeLocalizedText('项目简介'),
+      images: [],
       stack: ['React', 'TypeScript'],
       role: makeLocalizedText('负责内容'),
       outcome: makeLocalizedText('项目成果'),
@@ -656,7 +842,7 @@ function AdminEditor({
     );
   }
 
-  function updateTimelineField(id: string, field: 'period' | 'stack', value: any) {
+  function updateTimelineField(id: string, field: 'period' | 'stack' | 'images', value: any) {
     const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
     commit({ ...content, timelineProjects: nextProjects });
   }
@@ -800,6 +986,29 @@ function AdminEditor({
               value={content.profile.name}
               onChange={(v) => updateProfileField('name', v)}
             />
+            <div className="editorField">
+              <span className="fieldLabel">个人照片（选图上传到仓库，或手动填 /assets/ 路径；留空显示占位框）</span>
+              <div className="uploadRow">
+                {content.profile.avatar ? (
+                  <img className="uploadPreview" src={assetUrl(content.profile.avatar)} alt="照片预览" />
+                ) : (
+                  <div className="uploadPreview placeholder">
+                    <User size={20} />
+                  </div>
+                )}
+                <ImageUploadButton
+                  token={githubToken}
+                  setStatus={setStatus}
+                  onUploaded={(p) => updateProfileField('avatar', p)}
+                  label="上传照片"
+                />
+              </div>
+            </div>
+            <TextInput
+              label="照片路径"
+              value={content.profile.avatar}
+              onChange={(v) => updateProfileField('avatar', v)}
+            />
             <LocalizedTextInput
               label="标题"
               value={content.profile.headline}
@@ -896,6 +1105,19 @@ function AdminEditor({
                   onChange={(v) => updateTimelineLocalized(project.id, 'summary', v)}
                   multiline
                 />
+                <StringArrayEditor
+                  label="项目图片（选图上传或手动填 /assets/ 路径，可多张，拖动顺序即展示顺序）"
+                  items={project.images}
+                  onChange={(v) => updateTimelineField(project.id, 'images', v)}
+                />
+                <div className="uploadRow">
+                  <ImageUploadButton
+                    token={githubToken}
+                    setStatus={setStatus}
+                    onUploaded={(p) => updateTimelineField(project.id, 'images', [...project.images, p])}
+                    label="上传项目图片"
+                  />
+                </div>
                 <StringArrayEditor
                   label="技术栈"
                   items={project.stack}

@@ -15,6 +15,7 @@ export type TimelineProject = {
   title: LocalizedText;
   period: string;
   summary: LocalizedText;
+  images: string[];
   stack: string[];
   role: LocalizedText;
   outcome: LocalizedText;
@@ -43,6 +44,7 @@ export type InfoModule = {
 export type SiteContent = {
   profile: {
     name: string;
+    avatar: string;
     headline: LocalizedText;
     intro: LocalizedText;
     research: LocalizedText;
@@ -71,6 +73,8 @@ export const localeLabels: Record<Locale, string> = {
 export const defaultContent: SiteContent = {
   profile: {
     name: 'ZXEQzzg Csy',
+    // 个人照片：把图片放进 public/assets/，这里填 /assets/你的文件名；留空则显示占位框
+    avatar: '',
     headline: {
       zh: 'AI 专业背景 | 产品设计敏感度 | 研究驱动型项目实践',
       en: 'AI background, product design sense, research-driven project practice',
@@ -132,6 +136,11 @@ export const defaultContent: SiteContent = {
         en: 'A planning tool for long-term study goals with task decomposition, progress tracking, and reflective feedback.',
         ko: '장기 학습 목표를 위한 계획 도구로, 작업 분해와 진행 추적, 피드백 요약을 결합했습니다.',
       },
+      images: [
+        '/assets/GeneticAlgorithms -Crossover _TSP(0.0).png',
+        '/assets/GAs_-CombinatorialOptimization -Binary Gene Encoding-세 가지 모형.png',
+        '/assets/Semantic-based GAFS.png',
+      ],
       stack: ['React', 'TypeScript', 'LLM', 'Information Architecture'],
       role: {
         zh: '负责产品结构、交互原型、提示词流程与核心页面实现。',
@@ -169,6 +178,7 @@ export const defaultContent: SiteContent = {
         en: 'Organized interviews, competitive research, and course feedback into traceable product decisions.',
         ko: '인터뷰, 경쟁 분석, 수업 피드백을 추적 가능한 제품 판단으로 정리했습니다.',
       },
+      images: ['/assets/Semantic-based GAFS.png'],
       stack: ['UX Research', 'Data Visualization', 'React', 'Product Strategy'],
       role: {
         zh: '负责研究框架、信息分层、可视化组件与结论表达。',

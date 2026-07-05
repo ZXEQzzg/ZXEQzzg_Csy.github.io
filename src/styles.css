@@ -80,6 +80,33 @@ a {
   padding: 28px;
 }
 
+.profilePhoto {
+  margin-bottom: 4px;
+}
+
+.profilePhoto img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border: 1px solid var(--soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.profilePhotoFallback {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border: 1px dashed var(--soft);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .identityBlock {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
@@ -140,8 +167,13 @@ p {
 }
 
 .sidebarScroller {
-  overflow: auto;
-  padding-right: 2px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .profileCard,
@@ -171,7 +203,6 @@ p {
 .contactList {
   display: grid;
   gap: 10px;
-  margin-top: 18px;
 }
 
 .contactList a {
@@ -192,7 +223,6 @@ p {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 22px;
 }
 
 .microPanel div {
@@ -302,8 +332,8 @@ p {
 
 .contentGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 28px;
   max-width: 1240px;
   margin: 0 auto;
   padding: 38px 28px 80px;
@@ -321,93 +351,68 @@ p {
   grid-column: 2;
   grid-row: 1;
   align-self: start;
-  display: grid;
-  justify-items: end;
-  gap: 10px;
-  padding: 10px 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
   backdrop-filter: blur(18px);
 }
 
 .sectionRail a {
   position: relative;
-  overflow: hidden;
   display: flex;
-  justify-content: flex-end;
-  width: 28px;
-  height: 18px;
-  padding: 0;
-  border-radius: 999px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.86rem;
+  line-height: 1;
   white-space: nowrap;
-  background: transparent;
   transition:
-    width 180ms ease,
     background 180ms ease,
-    color 180ms ease,
-    opacity 180ms ease;
+    color 180ms ease;
 }
 
-.sectionRail a::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 0;
-  width: 26px;
-  height: 2px;
+.railDot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: var(--muted);
-  opacity: 0.5;
+  background: var(--soft);
   transition:
-    width 180ms ease,
-    opacity 180ms ease,
-    background 180ms ease;
+    background 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.sectionRail a span {
-  max-width: 0;
-  opacity: 0;
-  transform: translateX(6px);
-  transition:
-    max-width 180ms ease,
-    opacity 180ms ease,
-    transform 180ms ease;
+.railLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sectionRail:hover a {
-  width: 156px;
-  padding: 8px 12px;
+.sectionRail a:hover {
   background: var(--panel);
-  opacity: 0.42;
+  color: var(--text);
 }
 
-.sectionRail:hover a span,
-.sectionRail a.active span {
-  max-width: 130px;
-  opacity: 1;
-  transform: translateX(0);
+.sectionRail a:hover .railDot {
+  background: var(--muted);
 }
 
-.sectionRail:hover a::after {
-  opacity: 0;
-}
-
-.sectionRail a:hover,
 .sectionRail a.active {
-  width: 156px;
-  padding: 8px 12px;
   background: var(--panel-strong);
   color: var(--text);
-  opacity: 1;
+  font-weight: 600;
 }
 
-.sectionRail a.active::after {
-  width: 34px;
+.sectionRail a.active .railDot {
   background: var(--accent);
-  opacity: 0.9;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .mainFlow {
@@ -477,53 +482,182 @@ p {
   font-size: 0.78rem;
 }
 
-.accordion {
+.experienceList {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .projectPanel {
   overflow: hidden;
+  padding: 22px 22px 24px;
 }
 
-.projectPanel > button {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  min-height: 82px;
-  padding: 18px;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
+.projectHead {
+  margin-bottom: 16px;
 }
 
-.projectPanel small {
+.projectHead small {
   display: block;
   margin-bottom: 7px;
   color: var(--accent);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
 }
 
-.projectPanel svg {
-  transition: transform 180ms ease;
-}
-
-.projectPanel.open svg {
-  transform: rotate(180deg);
+.projectHead strong {
+  font-size: 1.14rem;
+  color: var(--text);
 }
 
 .projectBody {
-  padding: 0 18px 18px;
-  animation: reveal 220ms ease both;
+  display: grid;
+  gap: 16px;
+}
+
+.projectBody > p {
+  margin: 0;
 }
 
 .projectBody ul {
-  margin: 14px 0 0;
+  margin: 0;
   padding-left: 18px;
   color: var(--muted);
   line-height: 1.8;
+}
+
+/* 项目图片模块：横向自适应滚动 */
+.imageStrip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px;
+  margin: -4px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.imageStrip.single {
+  overflow-x: visible;
+}
+
+.imageStripItem {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: clamp(220px, 42%, 340px);
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 1px solid var(--soft);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+  cursor: zoom-in;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease;
+}
+
+.imageStrip.single .imageStripItem {
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: auto;
+}
+
+.imageStripItem:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--soft));
+}
+
+.imageStripItem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imageStrip.single .imageStripItem img {
+  height: auto;
+  max-height: 460px;
+  object-fit: contain;
+}
+
+/* 看图 lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: clamp(16px, 5vw, 56px);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  animation: reveal 160ms ease both;
+}
+
+.lightboxStage {
+  margin: 0;
+  max-width: min(1100px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.lightboxStage img {
+  max-width: 100%;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.lightboxCount {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.85rem;
+}
+
+.lightboxClose,
+.lightboxNav {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.lightboxClose:hover,
+.lightboxNav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lightboxClose {
+  position: absolute;
+  top: clamp(12px, 3vw, 24px);
+  right: clamp(12px, 3vw, 24px);
+  width: 44px;
+  height: 44px;
+}
+
+.lightboxNav {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+}
+
+@media (max-width: 640px) {
+  .lightboxNav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .imageStripItem {
+    width: 78%;
+  }
 }
 
 .detailGrid {
@@ -830,6 +964,33 @@ textarea {
   display: none;
 }
 
+.fileButton.busy {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.uploadRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.uploadPreview {
+  width: 56px;
+  height: 70px;
+  object-fit: cover;
+  border: 1px solid var(--soft);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.uploadPreview.placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
 .adminStudio .statusLine {
   max-width: 1240px;
   margin: 12px auto 0;
@@ -863,29 +1024,16 @@ textarea {
   .sectionRail {
     position: sticky;
     top: 72px;
+    z-index: 10;
     grid-column: 1;
-    display: flex;
+    grid-row: auto;
+    flex-direction: row;
+    gap: 4px;
     overflow-x: auto;
-    justify-items: stretch;
   }
 
-  .sectionRail a,
-  .sectionRail:hover a,
-  .sectionRail a.active {
-    width: auto;
-    height: auto;
-    padding: 8px 12px;
-    background: var(--panel);
-  }
-
-  .sectionRail a::after {
-    display: none;
-  }
-
-  .sectionRail a span {
-    max-width: none;
-    opacity: 1;
-    transform: none;
+  .sectionRail a {
+    flex: 0 0 auto;
   }
 
   .mainFlow {
