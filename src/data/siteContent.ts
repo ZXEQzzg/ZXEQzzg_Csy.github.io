@@ -93,7 +93,7 @@ export const defaultContent: SiteContent = {
       { label: '电话', value: '+86 13248371107', href: '·' },
       { label: '微信', value: 'WeChat：John_H_Hua_Sheng', href: '·' },
     ],
-    resume: { images: [], pdf: '' },
+    resume: { images: ['public/assets/--个人简历_CHENSIYANG--_PM.jpg'], pdf: '/assets/chensiyang-pm-ar8re1mrb2m3cz.pdf' },
   },
   skills: {
     title: { zh: '技术栈', en: 'Technical Stack', ko: '기술 스택' },
