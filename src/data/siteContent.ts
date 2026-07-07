@@ -81,7 +81,7 @@ export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '
 
 export const defaultContent: SiteContent = {
   profile: {
-    name: '陈斯阳 | BURCE',
+    name: '<span style="font-size:0.85em">陈斯阳 | BURCE</span>',
     avatar: '',
     headline: { zh: 'AI/LLM 专业背景 | AI Agent 产品方向 | AI 语音交互（TTS/ASR/VAD/声学仿真）', en: 'AI background, product design sense, research-driven project practice', ko: 'AI 전공 기반, 제품 디자인 감각, 연구 중심 프로젝트 경험' },
     intro: { zh: '研究端与工作端我专注于LLM相关实践与AI智能工程领域，具备从项目研究到工程落地的能力。围绕实际范式的应用与交互进行技术基础研究。', en: 'I focus on how AI systems move into real product contexts, balancing model capability, user experience, and explainable design.', ko: 'AI 시스템이 실제 제품 환경에 들어가는 방식에 관심이 있으며 모델 성능, 사용자 경험, 설명 가능한 설계의 균형을 중시합니다.' },
