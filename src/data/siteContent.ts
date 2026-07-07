@@ -98,7 +98,7 @@ export const defaultContent: SiteContent = {
   skills: {
     title: { zh: '技术栈', en: 'Technical Stack', ko: '기술 스택' },
     groups: [
-      { name: { zh: 'AI+  领域', en: 'AI / Data', ko: 'AI / 데이터' }, items: ['LLM', 'Agentic RAG', 'NLP', 'ASR', 'TTS ', 'VAD', 'Agent Tool', 'Function Calling', 'MCP', 'Skill', 'Prompt Eng', 'Context Eng', 'Agent Memory'] },
+      { name: { zh: 'AI+  领域', en: 'AI / Data', ko: 'AI / 데이터' }, items: ['LLM', 'Agentic RAG', 'NLP', 'ASR', 'TTS ', 'VAD', 'Agent Tool', 'Function Calling', 'MCP', 'Skill', 'Prompt Eng', 'Context Eng', 'Agent Memory', 'KWS'] },
       { name: { zh: '开发 | 工程 | Vibe Codding', en: 'Product / Design', ko: '제품 / 디자인' }, items: ['Python', 'Linux', 'Docker', 'Git', 'LangChain', 'Workflow', 'RAG 评估/测评', 'Vibe IDE/CLI 开发 - Claude Code | Codex | KIRO | Gemini&Antigravity | Trae | Copilot | Windsurf | CodeBuddy', 'GitHub Pages'] },
       { name: { zh: '产品', en: 'Engineering', ko: '엔지니어링' }, items: ['AI  模型评估与选型', '需求分析 & PRD 撰写', 'Agent 产品设计', '产品交互', '⽤⼾场景分析', '结构 / ⾮结构化数据处理', 'Canva', 'Axure', '墨⼑', 'Figma'] },
     ],
@@ -233,5 +233,12 @@ export const defaultContent: SiteContent = {
     },
   ],
   recentResearch: [
+    {
+      id: 'research-1783454578512',
+      kind: '论文',
+      title: { zh: '新条目', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '', en: '', ko: '' },
+    },
   ],
 };
