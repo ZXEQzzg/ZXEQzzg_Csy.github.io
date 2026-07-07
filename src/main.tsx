@@ -63,8 +63,8 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   skills: { zh: '技术栈', en: 'Stack', ko: '스택' },
   experience: { zh: '主要经历', en: 'Experience', ko: '주요 경력' },
   gallery: { zh: '学术驱动项目', en: 'Academic Gallery', ko: '학술 갤러리' },
-  courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   major: { zh: '专业介绍', en: 'Major', ko: '전공' },
+  courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   research: { zh: '近期研究方向', en: 'Recent Research', ko: '최근 연구' },
 };
 
@@ -121,7 +121,7 @@ function RichText({
 }: {
   text: string;
   className?: string;
-  as?: 'p' | 'span' | 'div' | 'h2';
+  as?: 'p' | 'span' | 'div' | 'h1' | 'h2';
 }) {
   return <Tag className={className} dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
 }
@@ -200,7 +200,7 @@ function Portfolio({
             <div className="mark">AI</div>
             <div>
               <p className="eyebrow">{content.profile.location[locale]}</p>
-              <h1>{content.profile.name}</h1>
+              <RichText as="h1" text={content.profile.name} />
             </div>
           </div>
 
@@ -227,22 +227,16 @@ function Portfolio({
           {(content.profile.resume.images.length > 0 || Boolean(content.profile.resume.pdf)) && (
             <section className="resumeBlock">
               <p className="blockLabel">
-                <FileText size={14} /> 个人简历
+                <FileText size={14} /> 目前简历 - CV
               </p>
               {content.profile.resume.images.length > 0 && (
-                <div className="resumeThumbs">
-                  {content.profile.resume.images.map((src, i) => (
-                    <button
-                      type="button"
-                      className="resumeThumb"
-                      key={`${src}-${i}`}
-                      onClick={() => openLightbox(content.profile.resume.images, i)}
-                      aria-label={`查看简历第 ${i + 1} 页`}
-                    >
-                      <img src={assetUrl(src)} alt={`简历 ${i + 1}`} loading="lazy" />
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  className="resumeView"
+                  onClick={() => openLightbox(content.profile.resume.images, 0)}
+                >
+                  <Eye size={15} /> 查看简历
+                </button>
               )}
               {content.profile.resume.pdf && (
                 <a
@@ -366,14 +360,14 @@ function Portfolio({
               <GalleryGrid projects={content.galleryProjects} locale={locale} />
             </section>
 
-            <section id="courses" className="moduleSection" onMouseEnter={() => setActiveSection('courses')}>
-              <SectionHeading icon={<BookOpen size={18} />} title={sectionLabels.courses[locale]} />
-              <InfoGrid modules={content.courses} locale={locale} />
-            </section>
-
             <section id="major" className="moduleSection" onMouseEnter={() => setActiveSection('major')}>
               <SectionHeading icon={<Sparkles size={18} />} title={sectionLabels.major[locale]} />
               <InfoGrid modules={content.major} locale={locale} />
+            </section>
+
+            <section id="courses" className="moduleSection" onMouseEnter={() => setActiveSection('courses')}>
+              <SectionHeading icon={<BookOpen size={18} />} title={sectionLabels.courses[locale]} />
+              <InfoGrid modules={content.courses} locale={locale} />
             </section>
 
             <section id="research" className="moduleSection" onMouseEnter={() => setActiveSection('research')}>
@@ -567,6 +561,11 @@ function ResearchList({ items, locale }: { items: ResearchItem[]; locale: Locale
         const title = item.title[locale];
         return (
           <article className="researchCard" key={item.id}>
+            {item.image && (
+              <div className="researchImage">
+                <img src={assetUrl(item.image)} alt={title} loading="lazy" />
+              </div>
+            )}
             <div className="researchTop">
               {item.kind && <span className="researchKind">{item.kind}</span>}
               {item.link && (
@@ -1282,7 +1281,7 @@ function AdminEditor({
     commit({ ...content, recentResearch: arr }, '已调整顺序');
   }
 
-  function updateResearchField(id: string, field: 'kind' | 'link', value: string) {
+  function updateResearchField(id: string, field: 'kind' | 'link' | 'image', value: string) {
     const arr = content.recentResearch.map((r) => (r.id === id ? { ...r, [field]: value } : r));
     commit({ ...content, recentResearch: arr });
   }
@@ -1300,8 +1299,8 @@ function AdminEditor({
     { key: 'skills', label: '技术栈', icon: <Code size={16} /> },
     { key: 'timeline', label: '项目经历', icon: <BriefcaseBusiness size={16} /> },
     { key: 'gallery', label: '学术画廊', icon: <Image size={16} /> },
-    { key: 'courses', label: '课程介绍', icon: <BookOpen size={16} /> },
     { key: 'major', label: '专业介绍', icon: <GraduationCap size={16} /> },
+    { key: 'courses', label: '课程介绍', icon: <BookOpen size={16} /> },
     { key: 'research', label: '研究方向', icon: <FlaskConical size={16} /> },
     { key: 'publish', label: '发布', icon: <Send size={16} /> },
   ];
@@ -1312,8 +1311,8 @@ function AdminEditor({
         return (
           <div className="editPanel">
             <h3>个人介绍</h3>
-            <TextInput
-              label="姓名"
+            <RichTextArea
+              label="姓名（可加粗 / 字号 / 颜色）"
               value={content.profile.name}
               onChange={(v) => updateProfileField('name', v)}
             />
@@ -1713,6 +1712,30 @@ function AdminEditor({
                   onChange={(v) => updateResearchLocalized(r.id, 'note', v)}
                   multiline
                 />
+                <div className="uploadRow">
+                  {r.image ? (
+                    <img className="uploadPreview" src={assetUrl(r.image)} alt="配图预览" />
+                  ) : (
+                    <div className="uploadPreview placeholder">
+                      <Image size={18} />
+                    </div>
+                  )}
+                  <ImageUploadButton
+                    token={githubToken}
+                    setStatus={setStatus}
+                    onUploaded={(p) => updateResearchField(r.id, 'image', p)}
+                    label="上传配图"
+                  />
+                  {r.image && (
+                    <button
+                      type="button"
+                      className="compactButton"
+                      onClick={() => updateResearchField(r.id, 'image', '')}
+                    >
+                      <X size={14} /> 清除配图
+                    </button>
+                  )}
+                </div>
                 <button type="button" className="dangerButton" onClick={() => removeResearch(r.id)}>
                   <Trash2 size={14} /> 删除条目
                 </button>

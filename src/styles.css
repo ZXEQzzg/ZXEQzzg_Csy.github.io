@@ -77,7 +77,8 @@ a {
   border-right: 1px solid var(--soft);
   background: rgba(255, 255, 255, 0.035);
   backdrop-filter: blur(24px);
-  padding: 28px;
+  /* 右内边距收窄，让滚动条贴近中线分隔线 */
+  padding: 28px 10px 28px 28px;
 }
 
 .profilePhoto {
@@ -173,7 +174,23 @@ p {
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 12px;
+  /* 细滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--soft) transparent;
+}
+
+.sidebarScroller::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebarScroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebarScroller::-webkit-scrollbar-thumb {
+  background: var(--soft);
+  border-radius: 999px;
 }
 
 .profileCard,
@@ -752,6 +769,7 @@ p {
 
 .researchCard {
   padding: 16px;
+  overflow: hidden;
   border: 1px solid var(--soft);
   border-radius: 8px;
   background: var(--panel);
@@ -759,6 +777,21 @@ p {
   transition:
     border-color 180ms ease,
     transform 180ms ease;
+}
+
+/* 研究条目配图：固定尺寸框，长图/方图都 contain 留边，各卡一致不忽大忽小 */
+.researchImage {
+  margin: -16px -16px 12px;
+  height: 150px;
+  border-bottom: 1px solid var(--soft);
+  background: color-mix(in srgb, var(--bg) 55%, black 8%);
+}
+
+.researchImage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .researchCard:hover {
@@ -825,34 +858,7 @@ p {
   text-transform: uppercase;
 }
 
-.resumeThumbs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.resumeThumb {
-  padding: 0;
-  aspect-ratio: 3 / 4;
-  border: 1px solid var(--soft);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--panel);
-  cursor: zoom-in;
-  transition: border-color 160ms ease;
-}
-
-.resumeThumb img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.resumeThumb:hover {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--soft));
-}
-
+.resumeView,
 .resumeDownload {
   display: inline-flex;
   align-items: center;
@@ -863,8 +869,13 @@ p {
   background: var(--panel);
   color: var(--text);
   font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
+.resumeView:hover,
 .resumeDownload:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--soft));
   color: var(--accent);

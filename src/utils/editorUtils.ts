@@ -82,6 +82,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  title: LocalizedText;`);
   lines.push(`  link: string;`);
   lines.push(`  note: LocalizedText;`);
+  lines.push(`  image?: string;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type ResumeBlock = {`);
@@ -212,6 +213,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      title: ${genLT(r.title)},`);
     lines.push(`      link: ${q(r.link)},`);
     lines.push(`      note: ${genLT(r.note)},`);
+    lines.push(`      image: ${q(r.image ?? '')},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);

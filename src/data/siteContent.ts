@@ -47,6 +47,7 @@ export type ResearchItem = {
   title: LocalizedText;
   link: string;
   note: LocalizedText;
+  image?: string;
 };
 
 export type ResumeBlock = {
