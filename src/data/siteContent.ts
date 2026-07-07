@@ -236,10 +236,27 @@ export const defaultContent: SiteContent = {
   recentResearch: [
     {
       id: 'research-1783454578512',
+      kind: '论文-DM',
+      title: { zh: 'LLM-Enhanced Dialogue Management for Full-Duplex Spoken Dialogue Systems', en: '新条目', ko: '新条目' },
+      link: 'https://arxiv.org/abs/2502.14145',
+      note: { zh: 'LLM - 全双工语音交互设计（Ten）', en: '', ko: '' },
+      image: '/assets/pa-01-0ksj9qmrb3y8kd.png',
+    },
+    {
+      id: 'research-1783456194447',
       kind: '论文',
       title: { zh: '新条目', en: '新条目', ko: '新条目' },
       link: '',
       note: { zh: '', en: '', ko: '' },
+      image: '',
+    },
+    {
+      id: 'research-1783456196695',
+      kind: '论文',
+      title: { zh: '新条目', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '', en: '', ko: '' },
+      image: '',
     },
   ],
 };
