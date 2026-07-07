@@ -32,6 +32,10 @@ import {
   Code,
   Image,
   GraduationCap,
+  FlaskConical,
+  ExternalLink,
+  FileText,
+  Download,
 } from 'lucide-react';
 import {
   defaultContent,
@@ -44,6 +48,7 @@ import {
   type TimelineProject,
   type InfoModule,
   type ProfileLink,
+  type ResearchItem,
 } from './data/siteContent';
 import { assetUrl, makeLocalizedText, publishToGitHub, uploadImageToGitHub } from './utils/editorUtils';
 import './styles.css';
@@ -51,7 +56,7 @@ import './styles.css';
 const contentStorageKey = 'zxeqzzg-portfolio-content-draft';
 const githubTokenKey = 'zxeqzzg-github-token';
 
-type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'courses' | 'major';
+type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'courses' | 'major' | 'research';
 
 const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   intro: { zh: '个人介绍', en: 'Profile', ko: '소개' },
@@ -60,6 +65,7 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   gallery: { zh: '学术驱动项目', en: 'Academic Gallery', ko: '학술 갤러리' },
   courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   major: { zh: '专业介绍', en: 'Major', ko: '전공' },
+  research: { zh: '近期研究方向', en: 'Recent Research', ko: '최근 연구' },
 };
 
 // 把旧草稿补齐到最新结构：老的 localStorage 草稿没有 avatar / images 字段，
@@ -74,6 +80,16 @@ function migrateContent(parsed: SiteContent): SiteContent {
       ...p,
       images: Array.isArray(p.images) ? p.images : [],
     }));
+  }
+  if (content.profile) {
+    const r = content.profile.resume;
+    content.profile.resume = {
+      images: Array.isArray(r?.images) ? r.images : [],
+      pdf: typeof r?.pdf === 'string' ? r.pdf : '',
+    };
+  }
+  if (!Array.isArray(content.recentResearch)) {
+    content.recentResearch = [];
   }
   return content;
 }
@@ -208,6 +224,40 @@ function Portfolio({
             ))}
           </section>
 
+          {(content.profile.resume.images.length > 0 || Boolean(content.profile.resume.pdf)) && (
+            <section className="resumeBlock">
+              <p className="blockLabel">
+                <FileText size={14} /> 个人简历
+              </p>
+              {content.profile.resume.images.length > 0 && (
+                <div className="resumeThumbs">
+                  {content.profile.resume.images.map((src, i) => (
+                    <button
+                      type="button"
+                      className="resumeThumb"
+                      key={`${src}-${i}`}
+                      onClick={() => openLightbox(content.profile.resume.images, i)}
+                      aria-label={`查看简历第 ${i + 1} 页`}
+                    >
+                      <img src={assetUrl(src)} alt={`简历 ${i + 1}`} loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {content.profile.resume.pdf && (
+                <a
+                  className="resumeDownload"
+                  href={assetUrl(content.profile.resume.pdf)}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Download size={15} /> 下载 PDF 简历
+                </a>
+              )}
+            </section>
+          )}
+
           <section className="microPanel">
             <div>
               <span>{sectionLabels.experience[locale]}</span>
@@ -324,6 +374,11 @@ function Portfolio({
             <section id="major" className="moduleSection" onMouseEnter={() => setActiveSection('major')}>
               <SectionHeading icon={<Sparkles size={18} />} title={sectionLabels.major[locale]} />
               <InfoGrid modules={content.major} locale={locale} />
+            </section>
+
+            <section id="research" className="moduleSection" onMouseEnter={() => setActiveSection('research')}>
+              <SectionHeading icon={<FlaskConical size={18} />} title={sectionLabels.research[locale]} />
+              <ResearchList items={content.recentResearch} locale={locale} />
             </section>
           </div>
         </div>
@@ -503,6 +558,40 @@ function GalleryGrid({ projects, locale }: { projects: GalleryProject[]; locale:
   );
 }
 
+// 近期研究方向：论文/博客/项目收藏，卡片式，标题可点外链
+function ResearchList({ items, locale }: { items: ResearchItem[]; locale: Locale }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="researchGrid">
+      {items.map((item) => {
+        const title = item.title[locale];
+        return (
+          <article className="researchCard" key={item.id}>
+            <div className="researchTop">
+              {item.kind && <span className="researchKind">{item.kind}</span>}
+              {item.link && (
+                <a className="researchLink" href={item.link} target="_blank" rel="noreferrer" aria-label="打开链接">
+                  <ExternalLink size={15} />
+                </a>
+              )}
+            </div>
+            <h3>
+              {item.link ? (
+                <a href={item.link} target="_blank" rel="noreferrer">
+                  {title}
+                </a>
+              ) : (
+                title
+              )}
+            </h3>
+            {item.note[locale] && <RichText text={item.note[locale]} />}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
   return (
     <div className="sectionHeading">
@@ -540,7 +629,15 @@ function InfoGrid({ modules, locale }: { modules: SiteContent['courses']; locale
 }
 
 // ===== Editor helpers =====
-type EditorTab = 'profile' | 'skills' | 'timeline' | 'gallery' | 'courses' | 'major' | 'publish';
+type EditorTab =
+  | 'profile'
+  | 'skills'
+  | 'timeline'
+  | 'gallery'
+  | 'courses'
+  | 'major'
+  | 'research'
+  | 'publish';
 
 // 选图直传到仓库 assets，成功后回调返回 /assets/xxx 路径
 function ImageUploadButton({
@@ -548,11 +645,13 @@ function ImageUploadButton({
   onUploaded,
   setStatus,
   label = '上传图片',
+  accept = 'image/*',
 }: {
   token: string;
   onUploaded: (path: string) => void;
   setStatus: (status: string) => void;
   label?: string;
+  accept?: string;
 }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -561,7 +660,7 @@ function ImageUploadButton({
       <span>{busy ? ' 上传中...' : ` ${label}`}</span>
       <input
         type="file"
-        accept="image/*"
+        accept={accept}
         disabled={busy}
         onChange={async (e) => {
           const file = e.target.files?.[0];
@@ -1093,6 +1192,14 @@ function AdminEditor({
     commit({ ...content, courses: content.courses.filter((c) => c.id !== id) }, '已删除课程');
   }
 
+  function moveCourse(index: number, dir: -1 | 1) {
+    const arr = [...content.courses];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    commit({ ...content, courses: arr }, '已调整课程顺序');
+  }
+
   function updateCourseField(id: string, field: 'title' | 'body', value: string) {
     const nextCourses = content.courses.map((c) =>
       c.id === id ? { ...c, [field]: { ...c[field], [locale]: value } } : c
@@ -1133,6 +1240,60 @@ function AdminEditor({
     commit({ ...content, major: nextMajor });
   }
 
+  // --- Resume (个人简历) ---
+  function updateResumeImages(images: string[]) {
+    commit({
+      ...content,
+      profile: { ...content.profile, resume: { ...content.profile.resume, images } },
+    });
+  }
+
+  function updateResumePdf(pdf: string) {
+    commit({
+      ...content,
+      profile: { ...content.profile, resume: { ...content.profile.resume, pdf } },
+    });
+  }
+
+  // --- Recent research (近期研究方向) ---
+  function addResearch() {
+    const item: ResearchItem = {
+      id: `research-${Date.now()}`,
+      kind: '论文',
+      title: makeLocalizedText('新条目'),
+      link: '',
+      note: makeLocalizedText(''),
+    };
+    commit({ ...content, recentResearch: [...content.recentResearch, item] }, '已添加研究方向条目');
+  }
+
+  function removeResearch(id: string) {
+    commit(
+      { ...content, recentResearch: content.recentResearch.filter((r) => r.id !== id) },
+      '已删除条目'
+    );
+  }
+
+  function moveResearch(index: number, dir: -1 | 1) {
+    const arr = [...content.recentResearch];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    commit({ ...content, recentResearch: arr }, '已调整顺序');
+  }
+
+  function updateResearchField(id: string, field: 'kind' | 'link', value: string) {
+    const arr = content.recentResearch.map((r) => (r.id === id ? { ...r, [field]: value } : r));
+    commit({ ...content, recentResearch: arr });
+  }
+
+  function updateResearchLocalized(id: string, field: 'title' | 'note', value: string) {
+    const arr = content.recentResearch.map((r) =>
+      r.id === id ? { ...r, [field]: { ...r[field], [locale]: value } } : r
+    );
+    commit({ ...content, recentResearch: arr });
+  }
+
   // --- Tab rendering ---
   const tabs: { key: EditorTab; label: string; icon: ReactNode }[] = [
     { key: 'profile', label: '个人介绍', icon: <User size={16} /> },
@@ -1141,6 +1302,7 @@ function AdminEditor({
     { key: 'gallery', label: '学术画廊', icon: <Image size={16} /> },
     { key: 'courses', label: '课程介绍', icon: <BookOpen size={16} /> },
     { key: 'major', label: '专业介绍', icon: <GraduationCap size={16} /> },
+    { key: 'research', label: '研究方向', icon: <FlaskConical size={16} /> },
     { key: 'publish', label: '发布', icon: <Send size={16} /> },
   ];
 
@@ -1220,6 +1382,50 @@ function AdminEditor({
               <button type="button" className="compactButton" onClick={addProfileLink}>
                 <Plus size={14} /> 添加联系方式
               </button>
+            </div>
+
+            <StringArrayEditor
+              label="个人简历 · 图片（左栏显示，点开弹窗查看，可多张；上传或手填 /assets 路径）"
+              items={content.profile.resume.images}
+              onChange={updateResumeImages}
+            />
+            <div className="uploadRow">
+              <ImageUploadButton
+                token={githubToken}
+                setStatus={setStatus}
+                onUploaded={(p) => updateResumeImages([...content.profile.resume.images, p])}
+                label="上传简历图片"
+              />
+            </div>
+
+            <div className="editorField">
+              <span className="fieldLabel">个人简历 · PDF（供访客下载）</span>
+              <div className="uploadRow">
+                {content.profile.resume.pdf ? (
+                  <a
+                    className="resumePdfChip"
+                    href={assetUrl(content.profile.resume.pdf)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <FileText size={14} /> 当前 PDF
+                  </a>
+                ) : (
+                  <span className="fieldHint">尚未上传 PDF</span>
+                )}
+                <ImageUploadButton
+                  token={githubToken}
+                  setStatus={setStatus}
+                  onUploaded={(p) => updateResumePdf(p)}
+                  label="上传 PDF"
+                  accept=".pdf,application/pdf"
+                />
+                {content.profile.resume.pdf && (
+                  <button type="button" className="compactButton" onClick={() => updateResumePdf('')}>
+                    <X size={14} /> 清除
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -1403,8 +1609,15 @@ function AdminEditor({
         return (
           <div className="editPanel">
             <h3>课程介绍</h3>
-            {content.courses.map((course) => (
+            {content.courses.map((course, i) => (
               <div key={course.id} className="nestedEditor">
+                <ItemHeader
+                  index={i}
+                  total={content.courses.length}
+                  title={course.title[locale]}
+                  onUp={() => moveCourse(i, -1)}
+                  onDown={() => moveCourse(i, 1)}
+                />
                 <LocalizedTextInput
                   label="课程名称"
                   value={course.title}
@@ -1457,6 +1670,56 @@ function AdminEditor({
             ))}
             <button type="button" className="compactButton" onClick={addMajor}>
               <Plus size={14} /> 添加模块
+            </button>
+          </div>
+        );
+
+      case 'research':
+        return (
+          <div className="editPanel">
+            <h3>近期研究方向</h3>
+            <p className="fieldHint" style={{ marginBottom: 12 }}>
+              收藏你最近读的论文、博客、关注的项目。类型可写「论文 / 博客 / 项目」等，标题可点外链。
+            </p>
+            {content.recentResearch.map((r, i) => (
+              <div key={r.id} className="nestedEditor">
+                <ItemHeader
+                  index={i}
+                  total={content.recentResearch.length}
+                  title={r.title[locale]}
+                  onUp={() => moveResearch(i, -1)}
+                  onDown={() => moveResearch(i, 1)}
+                />
+                <TextInput
+                  label="类型（论文 / 博客 / 项目…）"
+                  value={r.kind}
+                  onChange={(v) => updateResearchField(r.id, 'kind', v)}
+                />
+                <LocalizedTextInput
+                  label="标题"
+                  value={r.title}
+                  locale={locale}
+                  onChange={(v) => updateResearchLocalized(r.id, 'title', v)}
+                />
+                <TextInput
+                  label="链接 URL（可空）"
+                  value={r.link}
+                  onChange={(v) => updateResearchField(r.id, 'link', v)}
+                />
+                <LocalizedTextInput
+                  label="备注 / 收获（可空）"
+                  value={r.note}
+                  locale={locale}
+                  onChange={(v) => updateResearchLocalized(r.id, 'note', v)}
+                  multiline
+                />
+                <button type="button" className="dangerButton" onClick={() => removeResearch(r.id)}>
+                  <Trash2 size={14} /> 删除条目
+                </button>
+              </div>
+            ))}
+            <button type="button" className="compactButton" onClick={addResearch}>
+              <Plus size={14} /> 添加条目
             </button>
           </div>
         );

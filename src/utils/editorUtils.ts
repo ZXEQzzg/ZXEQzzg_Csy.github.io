@@ -76,6 +76,19 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  tags: string[];`);
   lines.push(`};`);
   lines.push(``);
+  lines.push(`export type ResearchItem = {`);
+  lines.push(`  id: string;`);
+  lines.push(`  kind: string;`);
+  lines.push(`  title: LocalizedText;`);
+  lines.push(`  link: string;`);
+  lines.push(`  note: LocalizedText;`);
+  lines.push(`};`);
+  lines.push(``);
+  lines.push(`export type ResumeBlock = {`);
+  lines.push(`  images: string[];`);
+  lines.push(`  pdf: string;`);
+  lines.push(`};`);
+  lines.push(``);
   lines.push(`export type SiteContent = {`);
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
@@ -85,6 +98,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`    research: LocalizedText;`);
   lines.push(`    location: LocalizedText;`);
   lines.push(`    links: ProfileLink[];`);
+  lines.push(`    resume: ResumeBlock;`);
   lines.push(`  };`);
   lines.push(`  skills: {`);
   lines.push(`    title: LocalizedText;`);
@@ -94,6 +108,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  galleryProjects: GalleryProject[];`);
   lines.push(`  courses: InfoModule[];`);
   lines.push(`  major: InfoModule[];`);
+  lines.push(`  recentResearch: ResearchItem[];`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };`);
@@ -112,6 +127,10 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      { label: ${q(link.label)}, value: ${q(link.value)}, href: ${q(link.href)} },`);
   }
   lines.push(`    ],`);
+  {
+    const resume = data.profile.resume ?? { images: [], pdf: '' };
+    lines.push(`    resume: { images: ${genStrArr(resume.images ?? [])}, pdf: ${q(resume.pdf ?? '')} },`);
+  }
   lines.push(`  },`);
 
   lines.push(`  skills: {`);
@@ -181,6 +200,18 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      title: ${genLT(m.title)},`);
     lines.push(`      body: ${genLT(m.body)},`);
     lines.push(`      tags: ${genStrArr(m.tags)},`);
+    lines.push(`    },`);
+  }
+  lines.push(`  ],`);
+
+  lines.push(`  recentResearch: [`);
+  for (const r of data.recentResearch ?? []) {
+    lines.push(`    {`);
+    lines.push(`      id: ${q(r.id)},`);
+    lines.push(`      kind: ${q(r.kind)},`);
+    lines.push(`      title: ${genLT(r.title)},`);
+    lines.push(`      link: ${q(r.link)},`);
+    lines.push(`      note: ${genLT(r.note)},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);

@@ -41,6 +41,19 @@ export type InfoModule = {
   tags: string[];
 };
 
+export type ResearchItem = {
+  id: string;
+  kind: string;
+  title: LocalizedText;
+  link: string;
+  note: LocalizedText;
+};
+
+export type ResumeBlock = {
+  images: string[];
+  pdf: string;
+};
+
 export type SiteContent = {
   profile: {
     name: string;
@@ -50,6 +63,7 @@ export type SiteContent = {
     research: LocalizedText;
     location: LocalizedText;
     links: ProfileLink[];
+    resume: ResumeBlock;
   };
   skills: {
     title: LocalizedText;
@@ -62,6 +76,7 @@ export type SiteContent = {
   galleryProjects: GalleryProject[];
   courses: InfoModule[];
   major: InfoModule[];
+  recentResearch: ResearchItem[];
 };
 
 export const localeLabels: Record<Locale, string> = {
@@ -102,6 +117,11 @@ export const defaultContent: SiteContent = {
       { label: '微信', value: 'your-wechat-id', href: '#' },
       { label: 'Portfolio', value: 'ZXEQzzg.github.io/ZXEQzzg_Csy.github.io', href: 'https://ZXEQzzg.github.io/ZXEQzzg_Csy.github.io/' },
     ],
+    // 个人简历：图片(点开弹窗看)+可下载 PDF，都在编辑器上传；留空则左栏不显示该板块
+    resume: {
+      images: [],
+      pdf: '',
+    },
   },
   skills: {
     title: {
@@ -499,6 +519,53 @@ export const defaultContent: SiteContent = {
         ko: '전공 학습은 머신러닝, 딥러닝, 자료구조, 알고리즘, 지능형 시스템 응용을 포함합니다. 기술 이해를 명확하고 미감 있으며 실용적인 제품 표현으로 전환하고자 합니다.',
       },
       tags: ['Machine Learning', 'Deep Learning', 'Algorithms', 'AI Product'],
+    },
+  ],
+  recentResearch: [
+    {
+      id: 'research-1',
+      kind: '论文',
+      title: {
+        zh: '示例：一篇你最近读的论文',
+        en: 'Sample: a paper you recently read',
+        ko: '예시: 최근 읽은 논문',
+      },
+      link: 'https://arxiv.org/',
+      note: {
+        zh: '在编辑器里替换为你的收藏，写一句为什么关注它。',
+        en: 'Replace in the editor; add one line on why it matters.',
+        ko: '편집기에서 교체하고 왜 관심 있는지 한 줄 적으세요.',
+      },
+    },
+    {
+      id: 'research-2',
+      kind: '博客',
+      title: {
+        zh: '示例：一篇启发你的博客/文章',
+        en: 'Sample: a blog post that inspired you',
+        ko: '예시: 영감을 준 블로그 글',
+      },
+      link: 'https://',
+      note: {
+        zh: '记录你的思考或收获。',
+        en: 'Note your takeaway.',
+        ko: '느낀 점을 적으세요.',
+      },
+    },
+    {
+      id: 'research-3',
+      kind: '项目',
+      title: {
+        zh: '示例：一个你关注的开源项目',
+        en: 'Sample: an open-source project you follow',
+        ko: '예시: 주목하는 오픈소스 프로젝트',
+      },
+      link: 'https://github.com/',
+      note: {
+        zh: '为什么值得关注。',
+        en: 'Why it is worth following.',
+        ko: '왜 주목할 만한지.',
+      },
     },
   ],
 };
