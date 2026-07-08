@@ -48,6 +48,12 @@ export type ResearchItem = {
   link: string;
   note: LocalizedText;
   image?: string;
+  /** 附件 PDF（/assets/xxx.pdf）；上传 PDF 时会自动截第一页生成封面图 */
+  pdf?: string;
+  /** 配图展示：auto=按图片真实比例自适应；cover=固定高度裁剪；contain=固定高度完整留边 */
+  imageMode?: 'auto' | 'cover' | 'contain';
+  /** cover/contain 模式下的框高（px），编辑页可调 */
+  imageHeight?: number;
 };
 
 export type ResumeBlock = {
@@ -59,6 +65,10 @@ export type SiteContent = {
   profile: {
     name: string;
     avatar: string;
+    /** 左上角小徽标文字（默认 AI） */
+    mark?: string;
+    /** 顶栏站点标题 */
+    siteTitle?: string;
     headline: LocalizedText;
     intro: LocalizedText;
     research: LocalizedText;

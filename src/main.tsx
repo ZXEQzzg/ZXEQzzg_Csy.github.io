@@ -1,62 +1,67 @@
-import { StrictMode, useEffect, useRef, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BookOpen,
   BriefcaseBusiness,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
+  FlaskConical,
   Github,
   Globe,
+  GraduationCap,
+  ImagePlus,
   Languages,
   Mail,
+  Maximize2,
   MessageCircle,
   Moon,
   PanelsTopLeft,
+  Pencil,
   Phone,
-  Plus,
-  Save,
   Sparkles,
   Sun,
-  Trash2,
-  Upload,
-  Send,
-  AlertCircle,
-  Bold,
-  Palette,
-  Eye,
-  RefreshCw,
-  X,
   User,
-  Code,
-  Image,
-  GraduationCap,
-  FlaskConical,
-  ExternalLink,
-  FileText,
-  Download,
+  X,
 } from 'lucide-react';
 import {
   defaultContent,
   localeLabels,
   type GalleryProject,
+  type InfoModule,
   type Locale,
   type LocalizedText,
+  type ProfileLink,
+  type ResearchItem,
   type SiteContent,
   type ThemeMode,
   type TimelineProject,
-  type InfoModule,
-  type ProfileLink,
-  type ResearchItem,
 } from './data/siteContent';
-import { assetUrl, makeLocalizedText, publishToGitHub, uploadImageToGitHub } from './utils/editorUtils';
+import { assetUrl, makeLocalizedText } from './utils/editorUtils';
+import {
+  AddGhost,
+  AdminEditor,
+  Chips,
+  ItemToolbar,
+  LT,
+  LTList,
+  ResearchMediaView,
+  S,
+  SR,
+  contentStorageKey,
+  cx,
+  moveIn,
+  setLT,
+  updIn,
+  useEdit,
+  useLockBody,
+} from './editing';
 import './styles.css';
 
-const contentStorageKey = 'zxeqzzg-portfolio-content-draft';
-const githubTokenKey = 'zxeqzzg-github-token';
-
-type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'courses' | 'major' | 'research';
+type SectionKey = 'intro' | 'skills' | 'experience' | 'gallery' | 'major' | 'courses' | 'research';
 
 const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   intro: { zh: '个人介绍', en: 'Profile', ko: '소개' },
@@ -68,12 +73,19 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   research: { zh: '近期研究方向', en: 'Recent Research', ko: '최근 연구' },
 };
 
-// 把旧草稿补齐到最新结构：老的 localStorage 草稿没有 avatar / images 字段，
-// 不补齐的话编辑器里 images.map / avatar 输入会炸，所以在入口统一 normalize。
+// 把旧草稿补齐到最新结构：老的 localStorage 草稿缺 avatar / images / resume /
+// recentResearch 新字段，不补齐编辑器会崩，所以入口统一 normalize。
 function migrateContent(parsed: SiteContent): SiteContent {
   const content = parsed;
-  if (content.profile && typeof content.profile.avatar !== 'string') {
-    content.profile.avatar = '';
+  if (content.profile) {
+    if (typeof content.profile.avatar !== 'string') content.profile.avatar = '';
+    if (typeof content.profile.mark !== 'string') content.profile.mark = 'AI';
+    if (typeof content.profile.siteTitle !== 'string') content.profile.siteTitle = 'ZXEQzzg Csy Portfolio';
+    const r = content.profile.resume;
+    content.profile.resume = {
+      images: Array.isArray(r?.images) ? r.images : [],
+      pdf: typeof r?.pdf === 'string' ? r.pdf : '',
+    };
   }
   if (Array.isArray(content.timelineProjects)) {
     content.timelineProjects = content.timelineProjects.map((p) => ({
@@ -81,16 +93,18 @@ function migrateContent(parsed: SiteContent): SiteContent {
       images: Array.isArray(p.images) ? p.images : [],
     }));
   }
-  if (content.profile) {
-    const r = content.profile.resume;
-    content.profile.resume = {
-      images: Array.isArray(r?.images) ? r.images : [],
-      pdf: typeof r?.pdf === 'string' ? r.pdf : '',
-    };
-  }
-  if (!Array.isArray(content.recentResearch)) {
-    content.recentResearch = [];
-  }
+  content.recentResearch = Array.isArray(content.recentResearch)
+    ? content.recentResearch.map((r) => ({
+        image: '',
+        pdf: '',
+        imageMode: 'auto' as const,
+        imageHeight: 190,
+        ...r,
+        kind: typeof r.kind === 'string' ? r.kind : '',
+        link: typeof r.link === 'string' ? r.link : '',
+        note: r.note && typeof r.note === 'object' ? r.note : makeLocalizedText(''),
+      }))
+    : [];
   return content;
 }
 
@@ -99,31 +113,21 @@ function contactIcon(label: string) {
   const l = label.toLowerCase();
   if (l.includes('email') || l.includes('mail') || l.includes('邮')) return <Mail size={16} />;
   if (l.includes('github')) return <Github size={16} />;
-  if (l.includes('phone') || l.includes('tel') || l.includes('电话') || l.includes('手机'))
-    return <Phone size={16} />;
-  if (l.includes('wechat') || l.includes('weixin') || l.includes('微信'))
-    return <MessageCircle size={16} />;
+  if (l.includes('phone') || l.includes('tel') || l.includes('电话') || l.includes('手机')) return <Phone size={16} />;
+  if (l.includes('wechat') || l.includes('weixin') || l.includes('微信')) return <MessageCircle size={16} />;
   return <Globe size={16} />;
 }
 
-// 富文本渲染：内容字段支持 <b>/<span style=...> 等，发布前做轻量消毒（去 script/on*/javascript:）
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/javascript:/gi, '');
-}
-
-function RichText({
-  text,
-  className,
-  as: Tag = 'p',
-}: {
-  text: string;
-  className?: string;
-  as?: 'p' | 'span' | 'div' | 'h1' | 'h2';
-}) {
-  return <Tag className={className} dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
+// 联系方式 href 规范化：合法协议直接用，邮箱自动 mailto:，域名补 https://，
+// 其余（电话/微信占位符「·」等）返回 null 渲染为不可点击行，避免点了跳 404。
+function normalizeHref(link: ProfileLink): string | null {
+  const href = (link.href || '').trim();
+  const emailish = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
+  if (/^(https?:|mailto:|tel:)/i.test(href)) return href;
+  if (emailish(href)) return `mailto:${href}`;
+  if (emailish(link.value.trim())) return `mailto:${link.value.trim()}`;
+  if (/^(www\.|[a-z0-9-]+(\.[a-z0-9-]+)+([/?#]|$))/i.test(href)) return `https://${href}`;
+  return null;
 }
 
 function getInitialContent(): SiteContent {
@@ -154,20 +158,87 @@ function App() {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : locale === 'ko' ? 'ko' : 'en';
   }, [theme, locale]);
 
+  const site = (
+    <Portfolio content={content} locale={locale} theme={theme} setLocale={setLocale} setTheme={setTheme} animate={!isAdmin} />
+  );
+
   if (isAdmin) {
     return (
-      <AdminEditor
-        content={content}
-        locale={locale}
-        theme={theme}
-        setContent={setContent}
-        setLocale={setLocale}
-        setTheme={setTheme}
-      />
+      <AdminEditor content={content} setContent={setContent} locale={locale}>
+        {site}
+      </AdminEditor>
     );
   }
+  return site;
+}
 
-  return <Portfolio content={content} locale={locale} theme={theme} setLocale={setLocale} setTheme={setTheme} />;
+// ===== 滚动进度条 / 区块高亮 / 进场动画 =====
+function ScrollProgress() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onScroll = () => {
+      const el = document.documentElement;
+      const max = el.scrollHeight - el.clientHeight;
+      const p = max > 0 ? el.scrollTop / max : 0;
+      if (ref.current) ref.current.style.transform = `scaleX(${p})`;
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+  return <div className="scrollProgress" aria-hidden="true" ref={ref} />;
+}
+
+function useActiveSection(ids: SectionKey[]): string {
+  const [active, setActive] = useState<string>(ids[0] ?? 'intro');
+  const idsKey = ids.join(',');
+  useEffect(() => {
+    const list = idsKey.split(',').filter(Boolean);
+    const visible = new Map<string, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) =>
+          visible.set((e.target as HTMLElement).id, e.isIntersecting ? Math.max(e.intersectionRatio, 0.0001) : 0)
+        );
+        const current = list.find((id) => (visible.get(id) ?? 0) > 0);
+        if (current) setActive(current);
+      },
+      { rootMargin: '-15% 0px -55% 0px', threshold: [0, 0.2, 0.6] }
+    );
+    list.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
+    return () => io.disconnect();
+  }, [idsKey]);
+  return active;
+}
+
+// 进场渐显：仅公开页启用；编辑模式全部直接可见，避免打扰编辑
+function useReveal(enabled: boolean) {
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>('.reveal'));
+    if (!enabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      nodes.forEach((el) => el.classList.add('in'));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        }),
+      { rootMargin: '0px 0px -6% 0px', threshold: 0.04 }
+    );
+    nodes.filter((el) => !el.classList.contains('in')).forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [enabled]);
 }
 
 // ===== Portfolio =====
@@ -177,77 +248,174 @@ function Portfolio({
   theme,
   setLocale,
   setTheme,
-  adminTools,
+  animate = true,
 }: {
   content: SiteContent;
   locale: Locale;
   theme: ThemeMode;
   setLocale: (locale: Locale) => void;
   setTheme: (theme: ThemeMode) => void;
-  adminTools?: ReactNode;
+  animate?: boolean;
 }) {
-  const [activeSection, setActiveSection] = useState<SectionKey>('intro');
+  const edit = useEdit();
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
-  const sections = Object.keys(sectionLabels) as SectionKey[];
+  const [galleryModalId, setGalleryModalId] = useState<string | null>(null);
+
+  const sections = (Object.keys(sectionLabels) as SectionKey[]).filter(
+    (s) => s !== 'research' || content.recentResearch.length > 0 || Boolean(edit)
+  );
+  const activeSection = useActiveSection(sections);
+  useReveal(animate);
 
   const openLightbox = (images: string[], index: number) => setLightbox({ images, index });
+  const galleryProject = galleryModalId ? content.galleryProjects.find((p) => p.id === galleryModalId) ?? null : null;
 
   return (
     <main className="appShell">
+      <ScrollProgress />
       <aside className="sidebar">
         <div className="sidebarScroller">
           <div className="identityBlock">
-            <div className="mark">AI</div>
-            <div>
-              <p className="eyebrow">{content.profile.location[locale]}</p>
-              <RichText as="h1" text={content.profile.name} />
+            <S
+              value={content.profile.mark ?? 'AI'}
+              as="div"
+              className="mark"
+              placeholder="AI"
+              onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, mark: v } }))}
+            />
+            <div className="identityText">
+              <LT
+                value={content.profile.location}
+                locale={locale}
+                as="p"
+                className="eyebrow"
+                placeholder="所在地"
+                onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, location: setLT(c.profile.location, locale, v) } }))}
+              />
+              <SR
+                value={content.profile.name}
+                as="h1"
+                placeholder="姓名"
+                onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, name: v } }))}
+              />
             </div>
           </div>
 
-          <div className="profilePhoto">
+          <div
+            className={cx('profilePhoto', edit && 'canEdit')}
+            onClick={edit ? () => edit.openDrawer({ type: 'avatar' }) : undefined}
+            role={edit ? 'button' : undefined}
+            title={edit ? '更换个人照片' : undefined}
+          >
             {content.profile.avatar ? (
-              <img src={assetUrl(content.profile.avatar)} alt={content.profile.name} />
+              <img src={assetUrl(content.profile.avatar)} alt="个人照片" />
             ) : (
               <div className="profilePhotoFallback">
                 <User size={30} />
                 <span>个人照片</span>
               </div>
             )}
+            {edit && (
+              <span className="photoEditHint">
+                <ImagePlus size={14} /> 更换照片
+              </span>
+            )}
           </div>
 
           <section className="contactList">
-            {content.profile.links.map((link) => (
-              <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
-                {contactIcon(link.label)}
-                <span>{link.value}</span>
-              </a>
-            ))}
+            {content.profile.links.map((link, i) => {
+              const inner = (
+                <>
+                  {contactIcon(link.label)}
+                  <S
+                    value={link.value}
+                    as="span"
+                    placeholder="内容"
+                    onChange={(v) =>
+                      edit?.set((c) => ({
+                        ...c,
+                        profile: { ...c.profile, links: c.profile.links.map((l, li) => (li === i ? { ...l, value: v } : l)) },
+                      }))
+                    }
+                  />
+                  {edit && (
+                    <button
+                      type="button"
+                      className="iconMiniButton rowTool"
+                      title="编辑标签 / 链接 / 删除"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        edit.openDrawer({ type: 'link', index: i });
+                      }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                </>
+              );
+              const href = edit ? null : normalizeHref(link);
+              return href ? (
+                <a className="contactRow" key={i} href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer">
+                  {inner}
+                </a>
+              ) : (
+                <div className="contactRow" key={i}>
+                  {inner}
+                </div>
+              );
+            })}
+            {edit && (
+              <AddGhost
+                className="row"
+                label="添加联系方式"
+                onClick={() => {
+                  const next = content.profile.links.length;
+                  edit.set((c) => ({
+                    ...c,
+                    profile: { ...c.profile, links: [...c.profile.links, { label: 'Email', value: '', href: '' }] },
+                  }));
+                  edit.openDrawer({ type: 'link', index: next });
+                }}
+              />
+            )}
           </section>
 
-          {(content.profile.resume.images.length > 0 || Boolean(content.profile.resume.pdf)) && (
+          {(edit || content.profile.resume.images.length > 0 || Boolean(content.profile.resume.pdf)) && (
             <section className="resumeBlock">
               <p className="blockLabel">
-                <FileText size={14} /> 目前简历 - CV
+                <FileText size={14} /> 目前简历 · CV
+                {edit && (
+                  <button
+                    type="button"
+                    className="iconMiniButton rowTool"
+                    title="管理简历图片 / PDF"
+                    onClick={() => edit.openDrawer({ type: 'resume' })}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
               </p>
               {content.profile.resume.images.length > 0 && (
                 <button
                   type="button"
                   className="resumeView"
-                  onClick={() => openLightbox(content.profile.resume.images, 0)}
+                  onClick={() => (edit ? edit.openDrawer({ type: 'resume' }) : openLightbox(content.profile.resume.images, 0))}
                 >
                   <Eye size={15} /> 查看简历
                 </button>
               )}
-              {content.profile.resume.pdf && (
-                <a
-                  className="resumeDownload"
-                  href={assetUrl(content.profile.resume.pdf)}
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Download size={15} /> 下载 PDF 简历
-                </a>
+              {content.profile.resume.pdf &&
+                (edit ? (
+                  <button type="button" className="resumeDownload" onClick={() => edit.openDrawer({ type: 'resume' })}>
+                    <Download size={15} /> 下载 PDF 简历
+                  </button>
+                ) : (
+                  <a className="resumeDownload" href={assetUrl(content.profile.resume.pdf)} download target="_blank" rel="noreferrer">
+                    <Download size={15} /> 下载 PDF 简历
+                  </a>
+                ))}
+              {edit && content.profile.resume.images.length === 0 && !content.profile.resume.pdf && (
+                <AddGhost className="row" label="设置简历图片 / PDF" onClick={() => edit.openDrawer({ type: 'resume' })} />
               )}
             </section>
           )}
@@ -269,18 +437,18 @@ function Portfolio({
         <header className="topbar">
           <div className="titleDock">
             <PanelsTopLeft size={18} />
-            <span>ZXEQzzg Csy Portfolio</span>
+            <S
+              value={content.profile.siteTitle ?? 'ZXEQzzg Csy Portfolio'}
+              as="span"
+              placeholder="站点标题"
+              onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, siteTitle: v } }))}
+            />
           </div>
           <div className="settingsDock">
             <div className="segmented" aria-label="Language selector">
               <Languages size={15} />
               {(Object.keys(localeLabels) as Locale[]).map((item) => (
-                <button
-                  key={item}
-                  className={item === locale ? 'active' : ''}
-                  onClick={() => setLocale(item)}
-                  type="button"
-                >
+                <button key={item} className={item === locale ? 'active' : ''} onClick={() => setLocale(item)} type="button">
                   {localeLabels[item]}
                 </button>
               ))}
@@ -297,8 +465,6 @@ function Portfolio({
           </div>
         </header>
 
-        {adminTools}
-
         <div className="contentGrid">
           <nav className="sectionRail" aria-label="Portfolio sections">
             {sections.map((section) => (
@@ -306,8 +472,11 @@ function Portfolio({
                 key={section}
                 className={activeSection === section ? 'active' : ''}
                 href={`#${section}`}
-                onMouseEnter={() => setActiveSection(section)}
-                onFocus={() => setActiveSection(section)}
+                onClick={(e) => {
+                  // 阻止改 hash：编辑模式下 hash 变化会退出 #admin
+                  e.preventDefault();
+                  document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
               >
                 <span className="railDot" aria-hidden="true" />
                 <span className="railLabel">{sectionLabels[section][locale]}</span>
@@ -316,64 +485,54 @@ function Portfolio({
           </nav>
 
           <div className="mainFlow">
-            <section id="intro" className="introBand" onMouseEnter={() => setActiveSection('intro')}>
+            <section id="intro" className="introBand reveal">
               <p className="eyebrow">
                 <Sparkles size={14} /> {sectionLabels.intro[locale]}
               </p>
-              <h2>{content.profile.headline[locale]}</h2>
-              <RichText text={content.profile.intro[locale]} />
-              <RichText className="research" text={content.profile.research[locale]} />
+              <LT
+                value={content.profile.headline}
+                locale={locale}
+                as="h2"
+                className="heroHeadline"
+                placeholder="一句话标题"
+                onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, headline: setLT(c.profile.headline, locale, v) } }))}
+              />
+              <LT
+                rich
+                value={content.profile.intro}
+                locale={locale}
+                as="p"
+                placeholder="个人简介"
+                onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, intro: setLT(c.profile.intro, locale, v) } }))}
+              />
+              <LT
+                rich
+                value={content.profile.research}
+                locale={locale}
+                as="p"
+                className="research"
+                placeholder="研究方向"
+                onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, research: setLT(c.profile.research, locale, v) } }))}
+              />
             </section>
 
-            <section id="skills" className="moduleSection" onMouseEnter={() => setActiveSection('skills')}>
-              <SectionHeading icon={<BookOpen size={18} />} title={content.skills.title[locale]} />
-              <div className="skillGrid">
-                {content.skills.groups.map((group) => (
-                  <article className="skillPanel" key={group.name.en}>
-                    <h3>{group.name[locale]}</h3>
-                    <div className="tagCloud">
-                      {group.items.map((item) => (
-                        <span key={item}>{item}</span>
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
+            <SkillsSection content={content} locale={locale} />
+            <ExperienceSection content={content} locale={locale} onOpenImages={openLightbox} />
+            <GallerySection content={content} locale={locale} onOpenModal={setGalleryModalId} />
+
+            <section id="major" className="moduleSection reveal">
+              <SectionHeading index={4} icon={<GraduationCap size={17} />} title={sectionLabels.major[locale]} />
+              <InfoGrid modules={content.major} locale={locale} listKey="major" addLabel="添加专业模块" />
             </section>
 
-            <section id="experience" className="moduleSection" onMouseEnter={() => setActiveSection('experience')}>
-              <SectionHeading icon={<BriefcaseBusiness size={18} />} title={sectionLabels.experience[locale]} />
-              <div className="experienceList">
-                {content.timelineProjects.map((project) => (
-                  <TimelineProjectCard
-                    key={project.id}
-                    project={project}
-                    locale={locale}
-                    onOpenImages={openLightbox}
-                  />
-                ))}
-              </div>
+            <section id="courses" className="moduleSection reveal">
+              <SectionHeading index={5} icon={<BookOpen size={17} />} title={sectionLabels.courses[locale]} />
+              <InfoGrid modules={content.courses} locale={locale} listKey="courses" addLabel="添加课程" />
             </section>
 
-            <section id="gallery" className="moduleSection" onMouseEnter={() => setActiveSection('gallery')}>
-              <SectionHeading icon={<Sparkles size={18} />} title={sectionLabels.gallery[locale]} />
-              <GalleryGrid projects={content.galleryProjects} locale={locale} />
-            </section>
+            <ResearchSection content={content} locale={locale} onOpenImages={openLightbox} />
 
-            <section id="major" className="moduleSection" onMouseEnter={() => setActiveSection('major')}>
-              <SectionHeading icon={<Sparkles size={18} />} title={sectionLabels.major[locale]} />
-              <InfoGrid modules={content.major} locale={locale} />
-            </section>
-
-            <section id="courses" className="moduleSection" onMouseEnter={() => setActiveSection('courses')}>
-              <SectionHeading icon={<BookOpen size={18} />} title={sectionLabels.courses[locale]} />
-              <InfoGrid modules={content.courses} locale={locale} />
-            </section>
-
-            <section id="research" className="moduleSection" onMouseEnter={() => setActiveSection('research')}>
-              <SectionHeading icon={<FlaskConical size={18} />} title={sectionLabels.research[locale]} />
-              <ResearchList items={content.recentResearch} locale={locale} />
-            </section>
+            <Footer content={content} locale={locale} />
           </div>
         </div>
       </section>
@@ -386,76 +545,204 @@ function Portfolio({
           onIndex={(index) => setLightbox({ images: lightbox.images, index })}
         />
       )}
+      {galleryProject && (
+        <GalleryModal project={galleryProject} locale={locale} onClose={() => setGalleryModalId(null)} onOpenImage={openLightbox} />
+      )}
     </main>
   );
 }
 
-// ===== Sub-components =====
+// ===== 技能 =====
+function SkillsSection({ content, locale }: { content: SiteContent; locale: Locale }) {
+  const edit = useEdit();
+  // 分组没有 id，结构变化（增删/排序）时 +1 重挂，避免 index-key 下可编辑文本错位
+  const [ver, bump] = useReducer((x: number) => x + 1, 0);
+  const groups = content.skills.groups;
+  const setGroups = (next: SiteContent['skills']['groups']) => edit?.set((c) => ({ ...c, skills: { ...c.skills, groups: next } }));
+  return (
+    <section id="skills" className="moduleSection reveal">
+      <SectionHeading
+        index={1}
+        icon={<BookOpen size={17} />}
+        titleNode={
+          <LT
+            value={content.skills.title}
+            locale={locale}
+            as="h2"
+            placeholder="板块标题"
+            onChange={(v) => edit?.set((c) => ({ ...c, skills: { ...c.skills, title: setLT(c.skills.title, locale, v) } }))}
+          />
+        }
+      />
+      <div className="skillGrid">
+        {groups.map((group, i) => (
+          <article className="skillPanel" key={`${ver}:${i}`}>
+            {edit && (
+              <ItemToolbar
+                index={i}
+                total={groups.length}
+                deleteLabel={`技能组「${group.name[locale]}」`}
+                onMove={(dir) => {
+                  bump();
+                  setGroups(moveIn(groups, i, dir));
+                }}
+                onDelete={() => {
+                  bump();
+                  setGroups(groups.filter((_, x) => x !== i));
+                }}
+              />
+            )}
+            <LT
+              value={group.name}
+              locale={locale}
+              as="h3"
+              placeholder="分组名"
+              onChange={(v) => setGroups(groups.map((g, gi) => (gi === i ? { ...g, name: setLT(g.name, locale, v) } : g)))}
+            />
+            <Chips items={group.items} onChange={edit ? (items) => setGroups(groups.map((g, gi) => (gi === i ? { ...g, items } : g))) : undefined} />
+          </article>
+        ))}
+        {edit && (
+          <AddGhost
+            className="card"
+            label="添加技能组"
+            onClick={() => {
+              bump();
+              setGroups([...groups, { name: makeLocalizedText('新技能组'), items: [] }]);
+            }}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ===== 主要经历 =====
+function newTimelineProject(n: number): TimelineProject {
+  return {
+    id: `timeline-project-${Date.now()}`,
+    title: makeLocalizedText(`项目 ${n}`),
+    period: '2026',
+    summary: makeLocalizedText('项目简介'),
+    images: [],
+    stack: ['AI'],
+    role: makeLocalizedText('负责内容'),
+    outcome: makeLocalizedText('项目成果'),
+    details: [makeLocalizedText('细节描述')],
+  };
+}
+
+function ExperienceSection({
+  content,
+  locale,
+  onOpenImages,
+}: {
+  content: SiteContent;
+  locale: Locale;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  const projects = content.timelineProjects;
+  return (
+    <section id="experience" className="moduleSection reveal">
+      <SectionHeading index={2} icon={<BriefcaseBusiness size={17} />} title={sectionLabels.experience[locale]} />
+      <div className="experienceList">
+        {projects.map((project, i) => (
+          <TimelineProjectCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenImages={onOpenImages} />
+        ))}
+        {edit && (
+          <AddGhost
+            className="card"
+            label="添加项目经历"
+            onClick={() =>
+              edit.set((c) => ({ ...c, timelineProjects: [...c.timelineProjects, newTimelineProject(c.timelineProjects.length + 1)] }))
+            }
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
 function TimelineProjectCard({
   project,
+  index,
+  total,
   locale,
   onOpenImages,
 }: {
   project: TimelineProject;
+  index: number;
+  total: number;
   locale: Locale;
   onOpenImages: (images: string[], index: number) => void;
 }) {
+  const edit = useEdit();
+  const patch = (p: Partial<TimelineProject>) => edit?.set((c) => ({ ...c, timelineProjects: updIn(c.timelineProjects, project.id, p) }));
   return (
     <article className="projectPanel">
+      {edit && (
+        <ItemToolbar
+          index={index}
+          total={total}
+          deleteLabel={`项目「${project.title[locale]}」`}
+          onMove={(dir) => edit.set((c) => ({ ...c, timelineProjects: moveIn(c.timelineProjects, index, dir) }))}
+          onDelete={() => edit.set((c) => ({ ...c, timelineProjects: c.timelineProjects.filter((p) => p.id !== project.id) }))}
+          buttons={[
+            {
+              icon: <ImagePlus size={14} />,
+              title: '管理项目图片',
+              onClick: () => edit.openDrawer({ type: 'timeline-media', id: project.id }),
+            },
+          ]}
+        />
+      )}
       <div className="projectHead">
-        <small>{project.period}</small>
-        <strong>{project.title[locale]}</strong>
+        <S value={project.period} as="small" placeholder="时间段" onChange={(v) => patch({ period: v })} />
+        <LT value={project.title} locale={locale} as="strong" placeholder="项目名称" onChange={(v) => patch({ title: setLT(project.title, locale, v) })} />
       </div>
       <div className="projectBody">
-        <RichText text={project.summary[locale]} />
-        {project.images && project.images.length > 0 && (
+        <LT
+          rich
+          value={project.summary}
+          locale={locale}
+          as="p"
+          placeholder="项目简介"
+          onChange={(v) => patch({ summary: setLT(project.summary, locale, v) })}
+        />
+        {project.images.length > 0 ? (
           <ProjectImageStrip
             images={project.images}
             title={project.title[locale]}
-            onOpenImages={onOpenImages}
+            onOpen={(idx) => (edit ? edit.openDrawer({ type: 'timeline-media', id: project.id }) : onOpenImages(project.images, idx))}
           />
+        ) : (
+          edit && <AddGhost className="row" label="添加项目图片" onClick={() => edit.openDrawer({ type: 'timeline-media', id: project.id })} />
         )}
         <div className="detailGrid">
-          <InfoPill label="Stack" value={project.stack.join(' / ')} />
-          <InfoPill
-            label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}
-            value={project.role[locale]}
-          />
-          <InfoPill
-            label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}
-            value={project.outcome[locale]}
-          />
+          <div className="infoPill">
+            <span>Stack</span>
+            <Chips className="pillChips" items={project.stack} onChange={edit ? (stack) => patch({ stack }) : undefined} />
+          </div>
+          <InfoPill label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}>
+            <LT value={project.role} locale={locale} as="p" placeholder="职责" onChange={(v) => patch({ role: setLT(project.role, locale, v) })} />
+          </InfoPill>
+          <InfoPill label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}>
+            <LT value={project.outcome} locale={locale} as="p" placeholder="成果" onChange={(v) => patch({ outcome: setLT(project.outcome, locale, v) })} />
+          </InfoPill>
         </div>
-        <ul>
-          {project.details.map((item) => (
-            <li key={item.en}>{item[locale]}</li>
-          ))}
-        </ul>
+        <LTList items={project.details} locale={locale} as="ul" className="projectDetails" addLabel="添加细节" onChange={edit ? (details) => patch({ details }) : undefined} />
       </div>
     </article>
   );
 }
 
-// 项目图片模块：横向自适应滚动条，点击任意图放大到看图 lightbox
-function ProjectImageStrip({
-  images,
-  title,
-  onOpenImages,
-}: {
-  images: string[];
-  title: string;
-  onOpenImages: (images: string[], index: number) => void;
-}) {
+// 项目图片模块：横向自适应滚动条，点击放大（编辑模式点击进图片管理）
+function ProjectImageStrip({ images, title, onOpen }: { images: string[]; title: string; onOpen: (index: number) => void }) {
   return (
-    <div className={`imageStrip ${images.length === 1 ? 'single' : ''}`}>
+    <div className={cx('imageStrip', images.length === 1 && 'single')}>
       {images.map((src, i) => (
-        <button
-          type="button"
-          className="imageStripItem"
-          key={`${src}-${i}`}
-          onClick={() => onOpenImages(images, i)}
-          aria-label={`${title} 图片 ${i + 1}`}
-        >
+        <button type="button" className="imageStripItem" key={`${src}-${i}`} onClick={() => onOpen(i)} aria-label={`${title} 图片 ${i + 1}`}>
           <img src={assetUrl(src)} alt={`${title} ${i + 1}`} loading="lazy" />
         </button>
       ))}
@@ -463,7 +750,7 @@ function ProjectImageStrip({
   );
 }
 
-// 看图 lightbox：遮罩全屏、左右切换、Esc/方向键、点击遮罩关闭
+// ===== 看图 lightbox =====
 function Lightbox({
   images,
   index,
@@ -477,6 +764,7 @@ function Lightbox({
 }) {
   const count = images.length;
   const go = (delta: number) => onIndex((index + delta + count) % count);
+  useLockBody(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -531,1315 +819,410 @@ function Lightbox({
   );
 }
 
-function GalleryGrid({ projects, locale }: { projects: GalleryProject[]; locale: Locale }) {
-  return (
-    <div className="academicGallery">
-      {projects.map((project) => (
-        <article className="galleryCard" key={project.id}>
-          <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" />
-          <div className="galleryCardBody">
-            <p className="galleryCategory">{project.category[locale]}</p>
-            <h3>{project.title[locale]}</h3>
-            <div className="galleryNotes">
-              {project.notes.slice(0, 3).map((note) => (
-                <p key={note.en}>{note[locale]}</p>
-              ))}
-            </div>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
+// ===== 学术画廊 =====
+function newGalleryProject(n: number): GalleryProject {
+  return {
+    id: `academic-project-${Date.now()}`,
+    title: { zh: `学术项目 ${n}`, en: `Academic Project ${n}`, ko: `학술 프로젝트 ${n}` },
+    cover: '/assets/ppt-cover-01.svg',
+    category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+    notes: [makeLocalizedText('简介'), makeLocalizedText('说明'), makeLocalizedText('成果')],
+    stack: ['AI', 'Research'],
+    role: makeLocalizedText('负责内容'),
+    result: makeLocalizedText('项目成果'),
+    description: makeLocalizedText('项目描述'),
+  };
 }
 
-// 近期研究方向：论文/博客/项目收藏，卡片式，标题可点外链
-function ResearchList({ items, locale }: { items: ResearchItem[]; locale: Locale }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div className="researchGrid">
-      {items.map((item) => {
-        const title = item.title[locale];
-        return (
-          <article className="researchCard" key={item.id}>
-            {item.image && (
-              <div className="researchImage">
-                <img src={assetUrl(item.image)} alt={title} loading="lazy" />
-              </div>
-            )}
-            <div className="researchTop">
-              {item.kind && <span className="researchKind">{item.kind}</span>}
-              {item.link && (
-                <a className="researchLink" href={item.link} target="_blank" rel="noreferrer" aria-label="打开链接">
-                  <ExternalLink size={15} />
-                </a>
-              )}
-            </div>
-            <h3>
-              {item.link ? (
-                <a href={item.link} target="_blank" rel="noreferrer">
-                  {title}
-                </a>
-              ) : (
-                title
-              )}
-            </h3>
-            {item.note[locale] && <RichText text={item.note[locale]} />}
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
-  return (
-    <div className="sectionHeading">
-      {icon}
-      <h2>{title}</h2>
-    </div>
-  );
-}
-
-function InfoPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="infoPill">
-      <span>{label}</span>
-      <p>{value}</p>
-    </div>
-  );
-}
-
-function InfoGrid({ modules, locale }: { modules: SiteContent['courses']; locale: Locale }) {
-  return (
-    <div className="infoGrid">
-      {modules.map((module) => (
-        <article className="infoCard" key={module.id}>
-          <h3>{module.title[locale]}</h3>
-          <RichText text={module.body[locale]} />
-          <div className="tagCloud">
-            {module.tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-// ===== Editor helpers =====
-type EditorTab =
-  | 'profile'
-  | 'skills'
-  | 'timeline'
-  | 'gallery'
-  | 'courses'
-  | 'major'
-  | 'research'
-  | 'publish';
-
-// 选图直传到仓库 assets，成功后回调返回 /assets/xxx 路径
-function ImageUploadButton({
-  token,
-  onUploaded,
-  setStatus,
-  label = '上传图片',
-  accept = 'image/*',
-}: {
-  token: string;
-  onUploaded: (path: string) => void;
-  setStatus: (status: string) => void;
-  label?: string;
-  accept?: string;
-}) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <label className={`fileButton ${busy ? 'busy' : ''}`}>
-      {busy ? <RefreshCw size={14} className="spin" /> : <Upload size={14} />}
-      <span>{busy ? ' 上传中...' : ` ${label}`}</span>
-      <input
-        type="file"
-        accept={accept}
-        disabled={busy}
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          e.target.value = '';
-          if (!file) return;
-          if (!token.trim()) {
-            setStatus('请先到「发布」标签填入 GitHub Token，再上传图片');
-            return;
-          }
-          setBusy(true);
-          setStatus(`正在上传 ${file.name} ...`);
-          const res = await uploadImageToGitHub(file, token.trim());
-          setBusy(false);
-          if (res.success && res.path) {
-            onUploaded(res.path);
-            setStatus(`图片已上传并填入：${res.path}`);
-          } else {
-            setStatus(res.message);
-          }
-        }}
-      />
-    </label>
-  );
-}
-
-function TextInput({
-  label,
-  value,
-  onChange,
-  multiline = false,
-  rows = 3,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  multiline?: boolean;
-  rows?: number;
-}) {
-  return (
-    <label className="editorField">
-      <span className="fieldLabel">{label}</span>
-      {multiline ? (
-        <textarea className="fieldInput" value={value} onChange={(e) => onChange(e.target.value)} rows={rows} />
-      ) : (
-        <input className="fieldInput" type="text" value={value} onChange={(e) => onChange(e.target.value)} />
-      )}
-    </label>
-  );
-}
-
-// 富文本编辑：工具条(加粗/字号/颜色色盘+hex)对选中文字包 HTML；也可直接手写代码
-const RICH_FONT_SIZES = [
-  { label: '小', value: '0.85em' },
-  { label: '大', value: '1.3em' },
-  { label: '特大', value: '1.6em' },
-];
-
-function RichTextArea({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const [color, setColor] = useState('#70d7c7');
-
-  function surround(before: string, after: string) {
-    const ta = ref.current;
-    const start = ta ? ta.selectionStart : value.length;
-    const end = ta ? ta.selectionEnd : value.length;
-    const picked = value.slice(start, end) || '文字';
-    onChange(value.slice(0, start) + before + picked + after + value.slice(end));
-  }
-
-  return (
-    <div className="editorField">
-      <span className="fieldLabel">{label}</span>
-      <div className="richToolbar">
-        <button type="button" title="加粗" onClick={() => surround('<b>', '</b>')}>
-          <Bold size={14} />
-        </button>
-        <select
-          title="字号"
-          value=""
-          onChange={(e) => {
-            if (e.target.value) surround(`<span style="font-size:${e.target.value}">`, '</span>');
-          }}
-        >
-          <option value="">字号</option>
-          {RICH_FONT_SIZES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <span className="colorPick">
-          <input type="color" value={color} title="选颜色" onChange={(e) => setColor(e.target.value)} />
-          <input
-            type="text"
-            className="hexInput"
-            value={color}
-            placeholder="#70d7c7"
-            onChange={(e) => setColor(e.target.value)}
-          />
-          <button
-            type="button"
-            title="给选中文字上色"
-            onClick={() => surround(`<span style="color:${color}">`, '</span>')}
-          >
-            <Palette size={14} />
-          </button>
-        </span>
-      </div>
-      <textarea
-        ref={ref}
-        className="fieldInput"
-        rows={3}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <p className="fieldHint">
-        选中文字后点按钮加格式；也可直接写 HTML，如 &lt;b&gt;粗&lt;/b&gt;、&lt;span
-        style="color:#e0553d;font-size:1.4em"&gt;强调&lt;/span&gt;
-      </p>
-    </div>
-  );
-}
-
-function LocalizedTextInput({
-  label,
-  value,
-  locale,
-  onChange,
-  multiline = false,
-}: {
-  label: string;
-  value: LocalizedText;
-  locale: Locale;
-  onChange: (value: string) => void;
-  multiline?: boolean;
-}) {
-  if (multiline) {
-    return <RichTextArea label={label} value={value[locale]} onChange={onChange} />;
-  }
-  return <TextInput label={label} value={value[locale]} onChange={onChange} />;
-}
-
-function StringArrayEditor({
-  label,
-  items,
-  onChange,
-}: {
-  label: string;
-  items: string[];
-  onChange: (items: string[]) => void;
-}) {
-  return (
-    <div className="editorField">
-      <span className="fieldLabel">{label}</span>
-      <div className="stringArrayEditor">
-        {items.map((item, i) => (
-          <div key={i} className="stringArrayItem">
-            <input
-              type="text"
-              value={item}
-              onChange={(e) => {
-                const next = [...items];
-                next[i] = e.target.value;
-                onChange(next);
-              }}
-              className="fieldInput"
-            />
-            <button
-              type="button"
-              className="iconDangerButton"
-              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              title="删除"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-        <button type="button" className="compactButton" onClick={() => onChange([...items, ''])}>
-          <Plus size={14} /> 添加
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function LocalizedTextArrayEditor({
-  label,
-  items,
-  locale,
-  onChange,
-}: {
-  label: string;
-  items: LocalizedText[];
-  locale: Locale;
-  onChange: (items: LocalizedText[]) => void;
-}) {
-  return (
-    <div className="editorField">
-      <span className="fieldLabel">{label}</span>
-      <div className="stringArrayEditor">
-        {items.map((item, i) => (
-          <div key={i} className="stringArrayItem">
-            <input
-              type="text"
-              value={item[locale]}
-              onChange={(e) => {
-                const next = [...items];
-                next[i] = { ...item, [locale]: e.target.value };
-                onChange(next);
-              }}
-              className="fieldInput"
-            />
-            <button
-              type="button"
-              className="iconDangerButton"
-              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              title="删除"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-        <button type="button" className="compactButton" onClick={() => onChange([...items, makeLocalizedText()])}>
-          <Plus size={14} /> 添加
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// 编辑器里每个可排序卡片的头部：序号 + 标题 + 上移/下移
-function ItemHeader({
-  index,
-  total,
-  title,
-  onUp,
-  onDown,
-}: {
-  index: number;
-  total: number;
-  title: string;
-  onUp: () => void;
-  onDown: () => void;
-}) {
-  return (
-    <div className="itemHeader">
-      <span className="itemBadge">{index + 1}</span>
-      <span className="itemTitle">{title || '未命名'}</span>
-      <div className="itemActions">
-        <button
-          type="button"
-          className="iconMiniButton"
-          disabled={index === 0}
-          onClick={onUp}
-          title="上移"
-        >
-          <ChevronUp size={15} />
-        </button>
-        <button
-          type="button"
-          className="iconMiniButton"
-          disabled={index === total - 1}
-          onClick={onDown}
-          title="下移"
-        >
-          <ChevronDown size={15} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ===== AdminEditor =====
-function AdminEditor({
+function GallerySection({
   content,
   locale,
-  theme,
-  setContent,
-  setLocale,
-  setTheme,
+  onOpenModal,
 }: {
   content: SiteContent;
   locale: Locale;
-  theme: ThemeMode;
-  setContent: (content: SiteContent) => void;
-  setLocale: (locale: Locale) => void;
-  setTheme: (theme: ThemeMode) => void;
+  onOpenModal: (id: string) => void;
 }) {
-  const [status, setStatus] = useState('本地草稿尚未保存');
-  const [activeTab, setActiveTab] = useState<EditorTab>('profile');
-  const [githubToken, setGithubToken] = useState(() => localStorage.getItem(githubTokenKey) || '');
-  const [isPublishing, setIsPublishing] = useState(false);
-
-  function commit(nextContent: SiteContent, message = '已更新预览') {
-    setContent(nextContent);
-    setStatus(message);
-  }
-
-  function saveDraft() {
-    localStorage.setItem(contentStorageKey, JSON.stringify(content));
-    setStatus('草稿已保存在当前浏览器');
-  }
-
-  function resetDraft() {
-    localStorage.removeItem(contentStorageKey);
-    setContent(defaultContent);
-    setStatus('已恢复默认内容');
-  }
-
-  async function handlePublish() {
-    if (!githubToken.trim()) {
-      setStatus('请先输入 GitHub Token');
-      setActiveTab('publish');
-      return;
-    }
-    setIsPublishing(true);
-    setStatus('正在推送至 GitHub...');
-    const result = await publishToGitHub(content, githubToken.trim());
-    setStatus(result.message);
-    setIsPublishing(false);
-  }
-
-  // --- Profile editors ---
-  function updateProfileField(
-    field: 'name' | 'avatar' | 'headline' | 'intro' | 'research' | 'location',
-    value: string
-  ) {
-    if (field === 'name' || field === 'avatar') {
-      commit({ ...content, profile: { ...content.profile, [field]: value } });
-      return;
-    }
-    const fieldValue = content.profile[field as keyof typeof content.profile];
-    if (typeof fieldValue === 'object' && fieldValue !== null && 'zh' in fieldValue) {
-      commit({
-        ...content,
-        profile: { ...content.profile, [field]: { ...(fieldValue as LocalizedText), [locale]: value } },
-      });
-    }
-  }
-
-  function updateProfileLink(index: number, field: keyof ProfileLink, value: string) {
-    const nextLinks = [...content.profile.links];
-    nextLinks[index] = { ...nextLinks[index], [field]: value };
-    commit({ ...content, profile: { ...content.profile, links: nextLinks } });
-  }
-
-  function addProfileLink() {
-    commit({
-      ...content,
-      profile: {
-        ...content.profile,
-        links: [...content.profile.links, { label: 'New', value: '', href: '#' }],
-      },
-    });
-  }
-
-  function removeProfileLink(index: number) {
-    commit({
-      ...content,
-      profile: { ...content.profile, links: content.profile.links.filter((_, i) => i !== index) },
-    });
-  }
-
-  // --- Skills editors ---
-  function updateSkillsTitle(value: string) {
-    commit({
-      ...content,
-      skills: { ...content.skills, title: { ...content.skills.title, [locale]: value } },
-    });
-  }
-
-  function updateSkillGroupName(index: number, value: string) {
-    const nextGroups = [...content.skills.groups];
-    nextGroups[index] = { ...nextGroups[index], name: { ...nextGroups[index].name, [locale]: value } };
-    commit({ ...content, skills: { ...content.skills, groups: nextGroups } });
-  }
-
-  function updateSkillGroupItems(index: number, items: string[]) {
-    const nextGroups = [...content.skills.groups];
-    nextGroups[index] = { ...nextGroups[index], items };
-    commit({ ...content, skills: { ...content.skills, groups: nextGroups } });
-  }
-
-  function addSkillGroup() {
-    const index = content.skills.groups.length + 1;
-    commit({
-      ...content,
-      skills: {
-        ...content.skills,
-        groups: [...content.skills.groups, { name: makeLocalizedText(`技能组 ${index}`), items: [] }],
-      },
-    });
-  }
-
-  function removeSkillGroup(index: number) {
-    commit({
-      ...content,
-      skills: { ...content.skills, groups: content.skills.groups.filter((_, i) => i !== index) },
-    });
-  }
-
-  // --- Timeline editors ---
-  function addTimelineProject() {
-    const index = content.timelineProjects.length + 1;
-    const newProject: TimelineProject = {
-      id: `timeline-project-${Date.now()}`,
-      title: makeLocalizedText(`项目 ${index}`),
-      period: '2024 - 2025',
-      summary: makeLocalizedText('项目简介'),
-      images: [],
-      stack: ['React', 'TypeScript'],
-      role: makeLocalizedText('负责内容'),
-      outcome: makeLocalizedText('项目成果'),
-      details: [makeLocalizedText('细节描述')],
-    };
-    commit({ ...content, timelineProjects: [...content.timelineProjects, newProject] }, '已添加新的项目经历');
-  }
-
-  function removeTimelineProject(id: string) {
-    commit(
-      { ...content, timelineProjects: content.timelineProjects.filter((p) => p.id !== id) },
-      '已删除项目经历'
-    );
-  }
-
-  function moveTimelineProject(index: number, dir: -1 | 1) {
-    const arr = [...content.timelineProjects];
-    const j = index + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[index], arr[j]] = [arr[j], arr[index]];
-    commit({ ...content, timelineProjects: arr }, '已调整项目顺序');
-  }
-
-  function updateTimelineField(id: string, field: 'period' | 'stack' | 'images', value: any) {
-    const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
-    commit({ ...content, timelineProjects: nextProjects });
-  }
-
-  function updateTimelineLocalized(
-    id: string,
-    field: 'title' | 'summary' | 'role' | 'outcome',
-    value: string
-  ) {
-    const nextProjects = content.timelineProjects.map((p) =>
-      p.id === id ? { ...p, [field]: { ...p[field], [locale]: value } } : p
-    );
-    commit({ ...content, timelineProjects: nextProjects });
-  }
-
-  function updateTimelineDetails(id: string, details: LocalizedText[]) {
-    const nextProjects = content.timelineProjects.map((p) => (p.id === id ? { ...p, details } : p));
-    commit({ ...content, timelineProjects: nextProjects });
-  }
-
-  // --- Gallery editors ---
-  function addGalleryProject() {
-    const index = content.galleryProjects.length + 1;
-    const newProject: GalleryProject = {
-      id: `academic-project-${Date.now()}`,
-      title: { zh: `学术项目 ${index}`, en: `Academic Project ${index}`, ko: `학술 프로젝트 ${index}` },
-      cover: '/assets/ppt-cover-01.svg',
-      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
-      notes: [makeLocalizedText('简介'), makeLocalizedText('说明'), makeLocalizedText('成果')],
-      stack: ['AI', 'Research'],
-      role: makeLocalizedText('负责内容'),
-      result: makeLocalizedText('项目成果'),
-      description: makeLocalizedText('项目描述'),
-    };
-    commit({ ...content, galleryProjects: [...content.galleryProjects, newProject] }, '已添加学术项目');
-  }
-
-  function removeGalleryProject(id: string) {
-    commit(
-      { ...content, galleryProjects: content.galleryProjects.filter((p) => p.id !== id) },
-      '已删除学术项目'
-    );
-  }
-
-  function moveGalleryProject(index: number, dir: -1 | 1) {
-    const arr = [...content.galleryProjects];
-    const j = index + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[index], arr[j]] = [arr[j], arr[index]];
-    commit({ ...content, galleryProjects: arr }, '已调整项目顺序');
-  }
-
-  function updateGalleryField(id: string, field: 'cover' | 'stack', value: any) {
-    const nextProjects = content.galleryProjects.map((p) => (p.id === id ? { ...p, [field]: value } : p));
-    commit({ ...content, galleryProjects: nextProjects });
-  }
-
-  function updateGalleryLocalized(
-    id: string,
-    field: 'title' | 'category' | 'role' | 'result' | 'description',
-    value: string
-  ) {
-    const nextProjects = content.galleryProjects.map((p) =>
-      p.id === id ? { ...p, [field]: { ...p[field], [locale]: value } } : p
-    );
-    commit({ ...content, galleryProjects: nextProjects });
-  }
-
-  function updateGalleryNotes(id: string, notes: LocalizedText[]) {
-    const nextProjects = content.galleryProjects.map((p) => (p.id === id ? { ...p, notes } : p));
-    commit({ ...content, galleryProjects: nextProjects });
-  }
-
-  // --- Courses editors ---
-  function addCourse() {
-    const index = content.courses.length + 1;
-    const newCourse: InfoModule = {
-      id: `course-${Date.now()}`,
-      title: makeLocalizedText(`课程 ${index}`),
-      body: makeLocalizedText('课程描述'),
-      tags: ['AI', 'Design'],
-    };
-    commit({ ...content, courses: [...content.courses, newCourse] }, '已添加课程');
-  }
-
-  function removeCourse(id: string) {
-    commit({ ...content, courses: content.courses.filter((c) => c.id !== id) }, '已删除课程');
-  }
-
-  function moveCourse(index: number, dir: -1 | 1) {
-    const arr = [...content.courses];
-    const j = index + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[index], arr[j]] = [arr[j], arr[index]];
-    commit({ ...content, courses: arr }, '已调整课程顺序');
-  }
-
-  function updateCourseField(id: string, field: 'title' | 'body', value: string) {
-    const nextCourses = content.courses.map((c) =>
-      c.id === id ? { ...c, [field]: { ...c[field], [locale]: value } } : c
-    );
-    commit({ ...content, courses: nextCourses });
-  }
-
-  function updateCourseTags(id: string, tags: string[]) {
-    const nextCourses = content.courses.map((c) => (c.id === id ? { ...c, tags } : c));
-    commit({ ...content, courses: nextCourses });
-  }
-
-  // --- Major editors ---
-  function addMajor() {
-    const index = content.major.length + 1;
-    const newMajor: InfoModule = {
-      id: `major-${Date.now()}`,
-      title: makeLocalizedText(`专业模块 ${index}`),
-      body: makeLocalizedText('专业描述'),
-      tags: ['Machine Learning'],
-    };
-    commit({ ...content, major: [...content.major, newMajor] }, '已添加专业模块');
-  }
-
-  function removeMajor(id: string) {
-    commit({ ...content, major: content.major.filter((m) => m.id !== id) }, '已删除专业模块');
-  }
-
-  function updateMajorField(id: string, field: 'title' | 'body', value: string) {
-    const nextMajor = content.major.map((m) =>
-      m.id === id ? { ...m, [field]: { ...m[field], [locale]: value } } : m
-    );
-    commit({ ...content, major: nextMajor });
-  }
-
-  function updateMajorTags(id: string, tags: string[]) {
-    const nextMajor = content.major.map((m) => (m.id === id ? { ...m, tags } : m));
-    commit({ ...content, major: nextMajor });
-  }
-
-  // --- Resume (个人简历) ---
-  function updateResumeImages(images: string[]) {
-    commit({
-      ...content,
-      profile: { ...content.profile, resume: { ...content.profile.resume, images } },
-    });
-  }
-
-  function updateResumePdf(pdf: string) {
-    commit({
-      ...content,
-      profile: { ...content.profile, resume: { ...content.profile.resume, pdf } },
-    });
-  }
-
-  // --- Recent research (近期研究方向) ---
-  function addResearch() {
-    const item: ResearchItem = {
-      id: `research-${Date.now()}`,
-      kind: '论文',
-      title: makeLocalizedText('新条目'),
-      link: '',
-      note: makeLocalizedText(''),
-    };
-    commit({ ...content, recentResearch: [...content.recentResearch, item] }, '已添加研究方向条目');
-  }
-
-  function removeResearch(id: string) {
-    commit(
-      { ...content, recentResearch: content.recentResearch.filter((r) => r.id !== id) },
-      '已删除条目'
-    );
-  }
-
-  function moveResearch(index: number, dir: -1 | 1) {
-    const arr = [...content.recentResearch];
-    const j = index + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[index], arr[j]] = [arr[j], arr[index]];
-    commit({ ...content, recentResearch: arr }, '已调整顺序');
-  }
-
-  function updateResearchField(id: string, field: 'kind' | 'link' | 'image', value: string) {
-    const arr = content.recentResearch.map((r) => (r.id === id ? { ...r, [field]: value } : r));
-    commit({ ...content, recentResearch: arr });
-  }
-
-  function updateResearchLocalized(id: string, field: 'title' | 'note', value: string) {
-    const arr = content.recentResearch.map((r) =>
-      r.id === id ? { ...r, [field]: { ...r[field], [locale]: value } } : r
-    );
-    commit({ ...content, recentResearch: arr });
-  }
-
-  // --- Tab rendering ---
-  const tabs: { key: EditorTab; label: string; icon: ReactNode }[] = [
-    { key: 'profile', label: '个人介绍', icon: <User size={16} /> },
-    { key: 'skills', label: '技术栈', icon: <Code size={16} /> },
-    { key: 'timeline', label: '项目经历', icon: <BriefcaseBusiness size={16} /> },
-    { key: 'gallery', label: '学术画廊', icon: <Image size={16} /> },
-    { key: 'major', label: '专业介绍', icon: <GraduationCap size={16} /> },
-    { key: 'courses', label: '课程介绍', icon: <BookOpen size={16} /> },
-    { key: 'research', label: '研究方向', icon: <FlaskConical size={16} /> },
-    { key: 'publish', label: '发布', icon: <Send size={16} /> },
-  ];
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return (
-          <div className="editPanel">
-            <h3>个人介绍</h3>
-            <RichTextArea
-              label="姓名（可加粗 / 字号 / 颜色）"
-              value={content.profile.name}
-              onChange={(v) => updateProfileField('name', v)}
-            />
-            <div className="editorField">
-              <span className="fieldLabel">个人照片（选图上传到仓库，或手动填 /assets/ 路径；留空显示占位框）</span>
-              <div className="uploadRow">
-                {content.profile.avatar ? (
-                  <img className="uploadPreview" src={assetUrl(content.profile.avatar)} alt="照片预览" />
-                ) : (
-                  <div className="uploadPreview placeholder">
-                    <User size={20} />
-                  </div>
-                )}
-                <ImageUploadButton
-                  token={githubToken}
-                  setStatus={setStatus}
-                  onUploaded={(p) => updateProfileField('avatar', p)}
-                  label="上传照片"
-                />
-              </div>
-            </div>
-            <TextInput
-              label="照片路径"
-              value={content.profile.avatar}
-              onChange={(v) => updateProfileField('avatar', v)}
-            />
-            <LocalizedTextInput
-              label="标题"
-              value={content.profile.headline}
-              locale={locale}
-              onChange={(v) => updateProfileField('headline', v)}
-            />
-            <LocalizedTextInput
-              label="简介"
-              value={content.profile.intro}
-              locale={locale}
-              onChange={(v) => updateProfileField('intro', v)}
-              multiline
-            />
-            <LocalizedTextInput
-              label="研究方向"
-              value={content.profile.research}
-              locale={locale}
-              onChange={(v) => updateProfileField('research', v)}
-              multiline
-            />
-            <LocalizedTextInput
-              label="所在地"
-              value={content.profile.location}
-              locale={locale}
-              onChange={(v) => updateProfileField('location', v)}
-            />
-
-            <div className="editorField">
-              <span className="fieldLabel">联系方式</span>
-              {content.profile.links.map((link, i) => (
-                <div key={i} className="nestedEditor">
-                  <TextInput label="标签" value={link.label} onChange={(v) => updateProfileLink(i, 'label', v)} />
-                  <TextInput label="值" value={link.value} onChange={(v) => updateProfileLink(i, 'value', v)} />
-                  <TextInput label="链接" value={link.href} onChange={(v) => updateProfileLink(i, 'href', v)} />
-                  <button type="button" className="dangerButton" onClick={() => removeProfileLink(i)}>
-                    <Trash2 size={14} /> 删除
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="compactButton" onClick={addProfileLink}>
-                <Plus size={14} /> 添加联系方式
-              </button>
-            </div>
-
-            <StringArrayEditor
-              label="个人简历 · 图片（左栏显示，点开弹窗查看，可多张；上传或手填 /assets 路径）"
-              items={content.profile.resume.images}
-              onChange={updateResumeImages}
-            />
-            <div className="uploadRow">
-              <ImageUploadButton
-                token={githubToken}
-                setStatus={setStatus}
-                onUploaded={(p) => updateResumeImages([...content.profile.resume.images, p])}
-                label="上传简历图片"
-              />
-            </div>
-
-            <div className="editorField">
-              <span className="fieldLabel">个人简历 · PDF（供访客下载）</span>
-              <div className="uploadRow">
-                {content.profile.resume.pdf ? (
-                  <a
-                    className="resumePdfChip"
-                    href={assetUrl(content.profile.resume.pdf)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FileText size={14} /> 当前 PDF
-                  </a>
-                ) : (
-                  <span className="fieldHint">尚未上传 PDF</span>
-                )}
-                <ImageUploadButton
-                  token={githubToken}
-                  setStatus={setStatus}
-                  onUploaded={(p) => updateResumePdf(p)}
-                  label="上传 PDF"
-                  accept=".pdf,application/pdf"
-                />
-                {content.profile.resume.pdf && (
-                  <button type="button" className="compactButton" onClick={() => updateResumePdf('')}>
-                    <X size={14} /> 清除
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'skills':
-        return (
-          <div className="editPanel">
-            <h3>技术栈</h3>
-            <LocalizedTextInput
-              label="标题"
-              value={content.skills.title}
-              locale={locale}
-              onChange={updateSkillsTitle}
-            />
-            {content.skills.groups.map((group, i) => (
-              <div key={i} className="nestedEditor">
-                <LocalizedTextInput
-                  label="组名称"
-                  value={group.name}
-                  locale={locale}
-                  onChange={(v) => updateSkillGroupName(i, v)}
-                />
-                <StringArrayEditor label="技能列表" items={group.items} onChange={(items) => updateSkillGroupItems(i, items)} />
-                <button type="button" className="dangerButton" onClick={() => removeSkillGroup(i)}>
-                  <Trash2 size={14} /> 删除该组
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addSkillGroup}>
-              <Plus size={14} /> 添加技能组
-            </button>
-          </div>
-        );
-
-      case 'timeline':
-        return (
-          <div className="editPanel">
-            <h3>项目经历</h3>
-            {content.timelineProjects.map((project, i) => (
-              <div key={project.id} className="nestedEditor">
-                <ItemHeader
-                  index={i}
-                  total={content.timelineProjects.length}
-                  title={project.title[locale]}
-                  onUp={() => moveTimelineProject(i, -1)}
-                  onDown={() => moveTimelineProject(i, 1)}
-                />
-                <LocalizedTextInput
-                  label="项目名称"
-                  value={project.title}
-                  locale={locale}
-                  onChange={(v) => updateTimelineLocalized(project.id, 'title', v)}
-                />
-                <TextInput label="时间段" value={project.period} onChange={(v) => updateTimelineField(project.id, 'period', v)} />
-                <LocalizedTextInput
-                  label="简介"
-                  value={project.summary}
-                  locale={locale}
-                  onChange={(v) => updateTimelineLocalized(project.id, 'summary', v)}
-                  multiline
-                />
-                <StringArrayEditor
-                  label="项目图片（选图上传或手动填 /assets/ 路径，可多张，拖动顺序即展示顺序）"
-                  items={project.images}
-                  onChange={(v) => updateTimelineField(project.id, 'images', v)}
-                />
-                <div className="uploadRow">
-                  <ImageUploadButton
-                    token={githubToken}
-                    setStatus={setStatus}
-                    onUploaded={(p) => updateTimelineField(project.id, 'images', [...project.images, p])}
-                    label="上传项目图片"
-                  />
-                </div>
-                <StringArrayEditor
-                  label="技术栈"
-                  items={project.stack}
-                  onChange={(v) => updateTimelineField(project.id, 'stack', v)}
-                />
-                <LocalizedTextInput
-                  label="职责"
-                  value={project.role}
-                  locale={locale}
-                  onChange={(v) => updateTimelineLocalized(project.id, 'role', v)}
-                />
-                <LocalizedTextInput
-                  label="成果"
-                  value={project.outcome}
-                  locale={locale}
-                  onChange={(v) => updateTimelineLocalized(project.id, 'outcome', v)}
-                />
-                <LocalizedTextArrayEditor
-                  label="详细描述"
-                  items={project.details}
-                  locale={locale}
-                  onChange={(v) => updateTimelineDetails(project.id, v)}
-                />
-                <button type="button" className="dangerButton" onClick={() => removeTimelineProject(project.id)}>
-                  <Trash2 size={14} /> 删除项目
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addTimelineProject}>
-              <Plus size={14} /> 添加项目
-            </button>
-          </div>
-        );
-
-      case 'gallery':
-        return (
-          <div className="editPanel">
-            <h3>学术画廊</h3>
-            {content.galleryProjects.map((project, i) => (
-              <div key={project.id} className="nestedEditor">
-                <ItemHeader
-                  index={i}
-                  total={content.galleryProjects.length}
-                  title={project.title[locale]}
-                  onUp={() => moveGalleryProject(i, -1)}
-                  onDown={() => moveGalleryProject(i, 1)}
-                />
-                <LocalizedTextInput
-                  label="项目名称"
-                  value={project.title}
-                  locale={locale}
-                  onChange={(v) => updateGalleryLocalized(project.id, 'title', v)}
-                />
-                <LocalizedTextInput
-                  label="分类"
-                  value={project.category}
-                  locale={locale}
-                  onChange={(v) => updateGalleryLocalized(project.id, 'category', v)}
-                />
-                <TextInput
-                  label="封面路径"
-                  value={project.cover}
-                  onChange={(v) => updateGalleryField(project.id, 'cover', v)}
-                />
-                <LocalizedTextArrayEditor
-                  label="项目说明"
-                  items={project.notes}
-                  locale={locale}
-                  onChange={(v) => updateGalleryNotes(project.id, v)}
-                />
-                <StringArrayEditor
-                  label="技术栈"
-                  items={project.stack}
-                  onChange={(v) => updateGalleryField(project.id, 'stack', v)}
-                />
-                <LocalizedTextInput
-                  label="职责"
-                  value={project.role}
-                  locale={locale}
-                  onChange={(v) => updateGalleryLocalized(project.id, 'role', v)}
-                />
-                <LocalizedTextInput
-                  label="成果"
-                  value={project.result}
-                  locale={locale}
-                  onChange={(v) => updateGalleryLocalized(project.id, 'result', v)}
-                />
-                <LocalizedTextInput
-                  label="描述"
-                  value={project.description}
-                  locale={locale}
-                  onChange={(v) => updateGalleryLocalized(project.id, 'description', v)}
-                  multiline
-                />
-                <button type="button" className="dangerButton" onClick={() => removeGalleryProject(project.id)}>
-                  <Trash2 size={14} /> 删除项目
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addGalleryProject}>
-              <Plus size={14} /> 添加项目
-            </button>
-          </div>
-        );
-
-      case 'courses':
-        return (
-          <div className="editPanel">
-            <h3>课程介绍</h3>
-            {content.courses.map((course, i) => (
-              <div key={course.id} className="nestedEditor">
-                <ItemHeader
-                  index={i}
-                  total={content.courses.length}
-                  title={course.title[locale]}
-                  onUp={() => moveCourse(i, -1)}
-                  onDown={() => moveCourse(i, 1)}
-                />
-                <LocalizedTextInput
-                  label="课程名称"
-                  value={course.title}
-                  locale={locale}
-                  onChange={(v) => updateCourseField(course.id, 'title', v)}
-                />
-                <LocalizedTextInput
-                  label="描述"
-                  value={course.body}
-                  locale={locale}
-                  onChange={(v) => updateCourseField(course.id, 'body', v)}
-                  multiline
-                />
-                <StringArrayEditor label="标签" items={course.tags} onChange={(v) => updateCourseTags(course.id, v)} />
-                <button type="button" className="dangerButton" onClick={() => removeCourse(course.id)}>
-                  <Trash2 size={14} /> 删除课程
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addCourse}>
-              <Plus size={14} /> 添加课程
-            </button>
-          </div>
-        );
-
-      case 'major':
-        return (
-          <div className="editPanel">
-            <h3>专业介绍</h3>
-            {content.major.map((m) => (
-              <div key={m.id} className="nestedEditor">
-                <LocalizedTextInput
-                  label="模块名称"
-                  value={m.title}
-                  locale={locale}
-                  onChange={(v) => updateMajorField(m.id, 'title', v)}
-                />
-                <LocalizedTextInput
-                  label="描述"
-                  value={m.body}
-                  locale={locale}
-                  onChange={(v) => updateMajorField(m.id, 'body', v)}
-                  multiline
-                />
-                <StringArrayEditor label="标签" items={m.tags} onChange={(v) => updateMajorTags(m.id, v)} />
-                <button type="button" className="dangerButton" onClick={() => removeMajor(m.id)}>
-                  <Trash2 size={14} /> 删除模块
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addMajor}>
-              <Plus size={14} /> 添加模块
-            </button>
-          </div>
-        );
-
-      case 'research':
-        return (
-          <div className="editPanel">
-            <h3>近期研究方向</h3>
-            <p className="fieldHint" style={{ marginBottom: 12 }}>
-              收藏你最近读的论文、博客、关注的项目。类型可写「论文 / 博客 / 项目」等，标题可点外链。
-            </p>
-            {content.recentResearch.map((r, i) => (
-              <div key={r.id} className="nestedEditor">
-                <ItemHeader
-                  index={i}
-                  total={content.recentResearch.length}
-                  title={r.title[locale]}
-                  onUp={() => moveResearch(i, -1)}
-                  onDown={() => moveResearch(i, 1)}
-                />
-                <TextInput
-                  label="类型（论文 / 博客 / 项目…）"
-                  value={r.kind}
-                  onChange={(v) => updateResearchField(r.id, 'kind', v)}
-                />
-                <LocalizedTextInput
-                  label="标题"
-                  value={r.title}
-                  locale={locale}
-                  onChange={(v) => updateResearchLocalized(r.id, 'title', v)}
-                />
-                <TextInput
-                  label="链接 URL（可空）"
-                  value={r.link}
-                  onChange={(v) => updateResearchField(r.id, 'link', v)}
-                />
-                <LocalizedTextInput
-                  label="备注 / 收获（可空）"
-                  value={r.note}
-                  locale={locale}
-                  onChange={(v) => updateResearchLocalized(r.id, 'note', v)}
-                  multiline
-                />
-                <div className="uploadRow">
-                  {r.image ? (
-                    <img className="uploadPreview" src={assetUrl(r.image)} alt="配图预览" />
-                  ) : (
-                    <div className="uploadPreview placeholder">
-                      <Image size={18} />
-                    </div>
-                  )}
-                  <ImageUploadButton
-                    token={githubToken}
-                    setStatus={setStatus}
-                    onUploaded={(p) => updateResearchField(r.id, 'image', p)}
-                    label="上传配图"
-                  />
-                  {r.image && (
-                    <button
-                      type="button"
-                      className="compactButton"
-                      onClick={() => updateResearchField(r.id, 'image', '')}
-                    >
-                      <X size={14} /> 清除配图
-                    </button>
-                  )}
-                </div>
-                <button type="button" className="dangerButton" onClick={() => removeResearch(r.id)}>
-                  <Trash2 size={14} /> 删除条目
-                </button>
-              </div>
-            ))}
-            <button type="button" className="compactButton" onClick={addResearch}>
-              <Plus size={14} /> 添加条目
-            </button>
-          </div>
-        );
-
-      case 'publish':
-        return (
-          <div className="editPanel">
-            <h3>发布到 GitHub</h3>
-            <div className="publishInfo">
-              <AlertCircle size={16} />
-              <p>发布功能会将当前编辑内容推送到 GitHub 仓库，自动触发 Actions 重新构建部署。</p>
-            </div>
-            <div className="editorField">
-              <span className="fieldLabel">GitHub Personal Access Token</span>
-              <input
-                type="password"
-                className="fieldInput"
-                value={githubToken}
-                onChange={(e) => {
-                  setGithubToken(e.target.value);
-                  localStorage.setItem(githubTokenKey, e.target.value);
-                }}
-                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-              />
-              <p className="fieldHint">
-                Token 需要 <code>repo</code> 权限。获取方式：GitHub Settings → Developer settings → Personal access tokens → Tokens
-                (classic)
-              </p>
-            </div>
-            <div className="publishActions">
-              <button type="button" className="primaryButton" onClick={handlePublish} disabled={isPublishing}>
-                {isPublishing ? <RefreshCw size={16} className="spin" /> : <Send size={16} />}
-                {isPublishing ? ' 发布中...' : ' 发布到 GitHub'}
-              </button>
-              <a
-                className="ghostButton"
-                href="https://github.com/ZXEQzzg/ZXEQzzg_Csy.github.io/actions"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Eye size={16} /> 查看 Actions 状态
-              </a>
-            </div>
-          </div>
-        );
-    }
-  };
-
-  const adminTools = (
-    <section className="adminStudio">
-      <div className="adminToolbar">
-        <div>
-          <p className="eyebrow">Private editing mode</p>
-          <h2>编辑模式 — 所有内容可编辑</h2>
-        </div>
-        <div className="adminActions">
-          <button type="button" className="primaryButton" onClick={saveDraft}>
-            <Save size={16} /> 保存草稿
-          </button>
-          <button type="button" className="ghostButton" onClick={resetDraft}>
-            <RefreshCw size={16} /> 重置
-          </button>
-          <a className="ghostButton" href="/#">
-            <Eye size={16} /> 查看公开页
-          </a>
-        </div>
+  const edit = useEdit();
+  const projects = content.galleryProjects;
+  return (
+    <section id="gallery" className="moduleSection reveal">
+      <SectionHeading index={3} icon={<Sparkles size={17} />} title={sectionLabels.gallery[locale]} />
+      <div className="academicGallery">
+        {projects.map((project, i) => (
+          <GalleryCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenModal={onOpenModal} />
+        ))}
+        {edit && (
+          <AddGhost
+            className="card tall"
+            label="添加学术项目"
+            onClick={() => edit.set((c) => ({ ...c, galleryProjects: [...c.galleryProjects, newGalleryProject(c.galleryProjects.length + 1)] }))}
+          />
+        )}
       </div>
-
-      <div className="editorLayout">
-        <nav className="editorTabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={activeTab === tab.key ? 'active' : ''}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="editorContent">{renderTabContent()}</div>
-      </div>
-      <p className="statusLine">{status}</p>
     </section>
   );
+}
+
+function GalleryCard({
+  project,
+  index,
+  total,
+  locale,
+  onOpenModal,
+}: {
+  project: GalleryProject;
+  index: number;
+  total: number;
+  locale: Locale;
+  onOpenModal: (id: string) => void;
+}) {
+  const edit = useEdit();
+  const patch = (p: Partial<GalleryProject>) => edit?.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, project.id, p) }));
+  return (
+    <article className={cx('galleryCard', !edit && 'clickable')} onClick={!edit ? () => onOpenModal(project.id) : undefined}>
+      {edit && (
+        <ItemToolbar
+          index={index}
+          total={total}
+          deleteLabel={`学术项目「${project.title[locale]}」`}
+          onMove={(dir) => edit.set((c) => ({ ...c, galleryProjects: moveIn(c.galleryProjects, index, dir) }))}
+          onDelete={() => edit.set((c) => ({ ...c, galleryProjects: c.galleryProjects.filter((p) => p.id !== project.id) }))}
+          buttons={[
+            { icon: <ImagePlus size={14} />, title: '更换封面', onClick: () => edit.openDrawer({ type: 'gallery-cover', id: project.id }) },
+            { icon: <Maximize2 size={14} />, title: '编辑详情弹窗内容', onClick: () => onOpenModal(project.id) },
+          ]}
+        />
+      )}
+      <div className="galleryCover">
+        <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" />
+        {!edit && (
+          <span className="galleryMore">
+            <Maximize2 size={13} /> 查看详情
+          </span>
+        )}
+      </div>
+      <div className="galleryCardBody">
+        <LT
+          value={project.category}
+          locale={locale}
+          as="p"
+          className="galleryCategory"
+          placeholder="分类"
+          onChange={(v) => patch({ category: setLT(project.category, locale, v) })}
+        />
+        <LT value={project.title} locale={locale} as="h3" placeholder="项目名称" onChange={(v) => patch({ title: setLT(project.title, locale, v) })} />
+        <LTList
+          items={project.notes}
+          locale={locale}
+          as="div"
+          className="galleryNotes"
+          max={3}
+          addLabel="添加说明"
+          onChange={edit ? (notes) => patch({ notes }) : undefined}
+        />
+      </div>
+    </article>
+  );
+}
+
+// 画廊详情弹窗：展示（并可就地编辑）此前从未露出的 description/role/result/stack
+function GalleryModal({
+  project,
+  locale,
+  onClose,
+  onOpenImage,
+}: {
+  project: GalleryProject;
+  locale: Locale;
+  onClose: () => void;
+  onOpenImage: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  useLockBody(true);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // lightbox 叠在详情弹窗上时，Esc 先只关 lightbox
+      if (e.key === 'Escape' && !document.querySelector('.lightbox')) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const patch = (p: Partial<GalleryProject>) => edit?.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, project.id, p) }));
+  const show = (lt: LocalizedText) => Boolean(edit) || lt[locale].trim() !== '';
 
   return (
-    <Portfolio
-      content={content}
-      locale={locale}
-      theme={theme}
-      setLocale={setLocale}
-      setTheme={setTheme}
-      adminTools={adminTools}
-    />
+    <div className="modalOverlay" onClick={onClose} role="dialog" aria-modal="true">
+      <article className="galleryModal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="lightboxClose inModal" onClick={onClose} aria-label="关闭">
+          <X size={18} />
+        </button>
+        <div className="galleryModalCover" onClick={() => project.cover && onOpenImage([project.cover], 0)} title="点击看大图">
+          <img src={assetUrl(project.cover)} alt={project.title[locale]} />
+        </div>
+        <div className="galleryModalBody">
+          <LT
+            value={project.category}
+            locale={locale}
+            as="p"
+            className="galleryCategory"
+            placeholder="分类"
+            onChange={(v) => patch({ category: setLT(project.category, locale, v) })}
+          />
+          <LT value={project.title} locale={locale} as="h3" placeholder="项目名称" onChange={(v) => patch({ title: setLT(project.title, locale, v) })} />
+          {show(project.description) && (
+            <LT
+              rich
+              value={project.description}
+              locale={locale}
+              as="p"
+              className="modalDesc"
+              placeholder="项目描述"
+              onChange={(v) => patch({ description: setLT(project.description, locale, v) })}
+            />
+          )}
+          <LTList items={project.notes} locale={locale} as="div" className="galleryNotes" addLabel="添加说明" onChange={edit ? (notes) => patch({ notes }) : undefined} />
+          <div className="modalPills">
+            {show(project.role) && (
+              <InfoPill label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}>
+                <LT value={project.role} locale={locale} as="p" placeholder="职责" onChange={(v) => patch({ role: setLT(project.role, locale, v) })} />
+              </InfoPill>
+            )}
+            {show(project.result) && (
+              <InfoPill label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}>
+                <LT value={project.result} locale={locale} as="p" placeholder="成果" onChange={(v) => patch({ result: setLT(project.result, locale, v) })} />
+              </InfoPill>
+            )}
+          </div>
+          <Chips items={project.stack} onChange={edit ? (stack) => patch({ stack }) : undefined} />
+        </div>
+      </article>
+    </div>
+  );
+}
+
+// ===== 近期研究方向 =====
+function newResearchItem(): ResearchItem {
+  return {
+    id: `research-${Date.now()}`,
+    kind: '论文',
+    title: makeLocalizedText('新条目'),
+    link: '',
+    note: makeLocalizedText(''),
+    image: '',
+    pdf: '',
+    imageMode: 'auto',
+    imageHeight: 190,
+  };
+}
+
+const KIND_PALETTE = ['#6fd7c6', '#f2c46d', '#a9a3ff', '#ff9b9b', '#8fd0ff'];
+function kindStyle(kind: string): CSSProperties {
+  let h = 0;
+  for (const ch of kind) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const c = KIND_PALETTE[h % KIND_PALETTE.length];
+  return { color: c, background: `color-mix(in srgb, ${c} 15%, transparent)` };
+}
+
+function ResearchSection({
+  content,
+  locale,
+  onOpenImages,
+}: {
+  content: SiteContent;
+  locale: Locale;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  const items = content.recentResearch;
+  if (!edit && items.length === 0) return null;
+  return (
+    <section id="research" className="moduleSection reveal">
+      <SectionHeading index={6} icon={<FlaskConical size={17} />} title={sectionLabels.research[locale]} />
+      <div className="researchGrid">
+        {items.map((item, i) => (
+          <ResearchCard key={item.id} item={item} index={i} total={items.length} locale={locale} onOpenImages={onOpenImages} />
+        ))}
+        {edit && (
+          <AddGhost
+            className="card"
+            label="添加条目（论文 / 博客 / 项目）"
+            onClick={() => edit.set((c) => ({ ...c, recentResearch: [...c.recentResearch, newResearchItem()] }))}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ResearchCard({
+  item,
+  index,
+  total,
+  locale,
+  onOpenImages,
+}: {
+  item: ResearchItem;
+  index: number;
+  total: number;
+  locale: Locale;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  const patch = (p: Partial<ResearchItem>) => edit?.set((c) => ({ ...c, recentResearch: updIn(c.recentResearch, item.id, p) }));
+  const title = item.title[locale];
+  const openMedia = edit ? () => edit.openDrawer({ type: 'research-media', id: item.id }) : undefined;
+  return (
+    <article className="researchCard">
+      {edit && (
+        <ItemToolbar
+          index={index}
+          total={total}
+          deleteLabel={`条目「${title}」`}
+          onMove={(dir) => edit.set((c) => ({ ...c, recentResearch: moveIn(c.recentResearch, index, dir) }))}
+          onDelete={() => edit.set((c) => ({ ...c, recentResearch: c.recentResearch.filter((r) => r.id !== item.id) }))}
+          buttons={[{ icon: <ImagePlus size={14} />, title: '配图 / PDF / 展示样式', onClick: () => edit.openDrawer({ type: 'research-media', id: item.id }) }]}
+        />
+      )}
+      <ResearchMediaView item={item} onClick={openMedia ?? (item.image ? () => onOpenImages([item.image!], 0) : undefined)} />
+      <div className="researchBody">
+        <div className="researchTop">
+          <span className="researchKind" style={kindStyle(item.kind || '论文')}>
+            <S value={item.kind} as="span" placeholder="类型" onChange={(v) => patch({ kind: v })} />
+          </span>
+          <span className="researchIcons">
+            {item.pdf &&
+              (edit ? (
+                <button type="button" className="researchLink" title="PDF（点击进设置）" onClick={openMedia}>
+                  <FileText size={15} />
+                </button>
+              ) : (
+                <a className="researchLink" href={assetUrl(item.pdf)} target="_blank" rel="noreferrer" title="打开 PDF">
+                  <FileText size={15} />
+                </a>
+              ))}
+            {edit ? (
+              <button type="button" className="researchLink" title="设置外部链接" onClick={openMedia}>
+                <ExternalLink size={15} />
+              </button>
+            ) : (
+              item.link && (
+                <a className="researchLink" href={item.link} target="_blank" rel="noreferrer" aria-label="打开链接">
+                  <ExternalLink size={15} />
+                </a>
+              )
+            )}
+          </span>
+        </div>
+        <h3 className="researchTitle">
+          {edit ? (
+            <LT value={item.title} locale={locale} as="span" placeholder="标题" onChange={(v) => patch({ title: setLT(item.title, locale, v) })} />
+          ) : item.link ? (
+            <a href={item.link} target="_blank" rel="noreferrer">
+              {title}
+            </a>
+          ) : (
+            title
+          )}
+        </h3>
+        {(edit || item.note[locale]) && (
+          <LT
+            rich
+            value={item.note}
+            locale={locale}
+            as="p"
+            className="researchNote"
+            placeholder="备注 / 收获"
+            onChange={(v) => patch({ note: setLT(item.note, locale, v) })}
+          />
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ===== 公共小组件 =====
+function SectionHeading({ icon, title, titleNode, index }: { icon: ReactNode; title?: string; titleNode?: ReactNode; index: number }) {
+  return (
+    <div className="sectionHeading">
+      <span className="headingIcon">{icon}</span>
+      {titleNode ?? <h2>{title}</h2>}
+      <span className="headingLine" aria-hidden="true" />
+      <span className="secIndex">{String(index).padStart(2, '0')}</span>
+    </div>
+  );
+}
+
+function InfoPill({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="infoPill">
+      <span>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function InfoGrid({
+  modules,
+  locale,
+  listKey,
+  addLabel,
+}: {
+  modules: InfoModule[];
+  locale: Locale;
+  listKey: 'courses' | 'major';
+  addLabel: string;
+}) {
+  const edit = useEdit();
+  const setList = (next: InfoModule[]) => edit?.set((c) => ({ ...c, [listKey]: next } as SiteContent));
+  return (
+    <div className="infoGrid">
+      {modules.map((m, i) => (
+        <article className="infoCard" key={m.id}>
+          {edit && (
+            <ItemToolbar
+              index={i}
+              total={modules.length}
+              deleteLabel={`「${m.title[locale]}」`}
+              onMove={(dir) => setList(moveIn(modules, i, dir))}
+              onDelete={() => setList(modules.filter((x) => x.id !== m.id))}
+            />
+          )}
+          <LT value={m.title} locale={locale} as="h3" placeholder="标题" onChange={(v) => setList(updIn(modules, m.id, { title: setLT(m.title, locale, v) }))} />
+          <LT rich value={m.body} locale={locale} as="p" placeholder="描述" onChange={(v) => setList(updIn(modules, m.id, { body: setLT(m.body, locale, v) }))} />
+          <Chips items={m.tags} onChange={edit ? (tags) => setList(updIn(modules, m.id, { tags })) : undefined} />
+        </article>
+      ))}
+      {edit && (
+        <AddGhost
+          className="card"
+          label={addLabel}
+          onClick={() =>
+            setList([...modules, { id: `${listKey}-${Date.now()}`, title: makeLocalizedText('新模块'), body: makeLocalizedText('描述'), tags: [] }])
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function Footer({ content, locale }: { content: SiteContent; locale: Locale }) {
+  const plainName = content.profile.name.replace(/<[^>]+>/g, '').trim() || 'ZXEQzzg';
+  return (
+    <footer className="siteFooter reveal">
+      <span>
+        © {new Date().getFullYear()} {plainName}
+      </span>
+      <span className="footDot">·</span>
+      <span>{content.profile.location[locale]}</span>
+      <span className="footDot">·</span>
+      <a href="https://github.com/ZXEQzzg" target="_blank" rel="noreferrer">
+        <Github size={13} /> GitHub
+      </a>
+      <span className="footSpacer" />
+      <span className="footMuted">Vite + React · GitHub Pages</span>
+    </footer>
   );
 }
 

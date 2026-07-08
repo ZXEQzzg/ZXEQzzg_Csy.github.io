@@ -83,6 +83,9 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  link: string;`);
   lines.push(`  note: LocalizedText;`);
   lines.push(`  image?: string;`);
+  lines.push(`  pdf?: string;`);
+  lines.push(`  imageMode?: 'auto' | 'cover' | 'contain';`);
+  lines.push(`  imageHeight?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type ResumeBlock = {`);
@@ -94,6 +97,8 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
   lines.push(`    avatar: string;`);
+  lines.push(`    mark?: string;`);
+  lines.push(`    siteTitle?: string;`);
   lines.push(`    headline: LocalizedText;`);
   lines.push(`    intro: LocalizedText;`);
   lines.push(`    research: LocalizedText;`);
@@ -119,6 +124,8 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  profile: {`);
   lines.push(`    name: ${q(data.profile.name)},`);
   lines.push(`    avatar: ${q(data.profile.avatar ?? '')},`);
+  lines.push(`    mark: ${q(data.profile.mark ?? 'AI')},`);
+  lines.push(`    siteTitle: ${q(data.profile.siteTitle ?? 'ZXEQzzg Csy Portfolio')},`);
   lines.push(`    headline: ${genLT(data.profile.headline)},`);
   lines.push(`    intro: ${genLT(data.profile.intro)},`);
   lines.push(`    research: ${genLT(data.profile.research)},`);
@@ -207,6 +214,8 @@ export function serializeSiteContent(data: SiteContent): string {
 
   lines.push(`  recentResearch: [`);
   for (const r of data.recentResearch ?? []) {
+    const mode = r.imageMode === 'cover' || r.imageMode === 'contain' ? r.imageMode : 'auto';
+    const height = Math.round(Number(r.imageHeight)) || 190;
     lines.push(`    {`);
     lines.push(`      id: ${q(r.id)},`);
     lines.push(`      kind: ${q(r.kind)},`);
@@ -214,6 +223,9 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      link: ${q(r.link)},`);
     lines.push(`      note: ${genLT(r.note)},`);
     lines.push(`      image: ${q(r.image ?? '')},`);
+    lines.push(`      pdf: ${q(r.pdf ?? '')},`);
+    lines.push(`      imageMode: ${q(mode)},`);
+    lines.push(`      imageHeight: ${height},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
