@@ -18,6 +18,7 @@ import {
   type ElementType,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type SetStateAction,
 } from 'react';
@@ -32,6 +33,7 @@ import {
   Eye,
   FileText,
   FileUp,
+  GripHorizontal,
   Image as ImageIcon,
   KeyRound,
   Palette,
@@ -124,11 +126,63 @@ export function RichText({ text, className, as = 'p' }: { text: string; classNam
 
 // ---------------------------------------------------------------------------
 // contentEditable 基元
-// 关键约定：初始 HTML 只在挂载时写入一次（dangerouslySetInnerHTML 传恒定值），
-// 输入过程中父组件随便重渲染都不会碰 DOM，光标不丢；外部改值（切语言/重置）
-// 一律靠调用方换 key 重挂。
+// 关键约定：
+// 1. 初始 HTML 只在挂载时写入一次（dangerouslySetInnerHTML 传恒定值），React
+//    永远不碰输入中的 DOM——打字由浏览器原生渲染，所见即所得、零延迟。
+// 2. 不逐键写 React 状态：只在「停顿 400ms / 失焦 / 回车」时提交，避免整页
+//    随键重渲染，也避免打断中文输入法组词（组词期间绝不提交，Enter/keyCode
+//    229 属于输入法确认，直接放行）。
+// 3. 外部改值（切语言/重置草稿）靠调用方换 key 重挂。
 // ---------------------------------------------------------------------------
 const richRegistry = new WeakMap<HTMLElement, (html: string) => void>();
+
+const COMMIT_DELAY = 400;
+
+/** 输入提交管线：组词保护 + 空闲提交 + 失焦提交，EditableText/EditableRich 共用 */
+function useCommitPipeline(read: (el: HTMLElement) => string, onChange: (v: string) => void) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const composing = useRef(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const commit = (el: HTMLElement) => {
+    window.clearTimeout(timer.current);
+    onChangeRef.current(read(el));
+  };
+  const schedule = (el: HTMLElement) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      if (!composing.current) commit(el);
+    }, COMMIT_DELAY);
+  };
+  return {
+    commit,
+    handlers: {
+      onInput: (e: FormEvent<HTMLElement>) => {
+        if (composing.current) return;
+        schedule(e.currentTarget);
+      },
+      onCompositionStart: () => {
+        composing.current = true;
+        window.clearTimeout(timer.current);
+      },
+      onCompositionEnd: (e: FormEvent<HTMLElement>) => {
+        composing.current = false;
+        schedule(e.currentTarget);
+      },
+      onPaste: (e: ClipboardEvent<HTMLElement>) => {
+        e.preventDefault();
+        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+      },
+    },
+    isComposing: () => composing.current,
+  };
+}
+
+const isImeKey = (e: ReactKeyboardEvent<HTMLElement>) =>
+  (e.nativeEvent as KeyboardEvent).isComposing || e.keyCode === 229;
 
 export function EditableText({
   value,
@@ -144,10 +198,19 @@ export function EditableText({
   as?: ElementType;
   className?: string;
   placeholder?: string;
-  onEnter?: () => void;
+  /** 回车时以最新文本回调（用于 chips/列表「提交并新增」的原子写入）；不传则回车=提交+失焦 */
+  onEnter?: (current: string) => void;
   onBlurText?: (text: string) => void;
 }) {
-  const initial = useRef(escapeHtml(value));
+  // 注意必须冻结整个 {__html} 对象而非只冻结字符串：React 19 对
+  // dangerouslySetInnerHTML 按对象引用比较，引用变了就无条件重写 innerHTML，
+  // 会把用户正在输入的内容打回旧值（React 18 比较的是字符串，无此问题）。
+  const initial = useRef({ __html: escapeHtml(value) });
+  const pipeline = useCommitPipeline((el) => el.textContent ?? '', onChange);
+  const onEnterRef = useRef(onEnter);
+  onEnterRef.current = onEnter;
+  const onBlurRef = useRef(onBlurText);
+  onBlurRef.current = onBlurText;
   const Tag = as as 'span';
   return (
     <Tag
@@ -156,22 +219,27 @@ export function EditableText({
       suppressContentEditableWarning
       spellCheck={false}
       data-ph={placeholder}
-      onInput={(e: FormEvent<HTMLElement>) => onChange(e.currentTarget.textContent ?? '')}
+      {...pipeline.handlers}
       onKeyDown={(e: ReactKeyboardEvent<HTMLElement>) => {
+        if (isImeKey(e)) return; // 输入法组词中的按键（含确认回车）交给输入法
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (onEnter) onEnter();
-          else (e.currentTarget as HTMLElement).blur();
+          const el = e.currentTarget as HTMLElement;
+          if (onEnterRef.current) onEnterRef.current(el.textContent ?? '');
+          else {
+            pipeline.commit(el);
+            el.blur();
+          }
         } else if (e.key === 'Escape') {
           (e.currentTarget as HTMLElement).blur();
         }
       }}
-      onPaste={(e: ClipboardEvent<HTMLElement>) => {
-        e.preventDefault();
-        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+      onBlur={(e) => {
+        const el = e.currentTarget as HTMLElement;
+        pipeline.commit(el);
+        onBlurRef.current?.(el.textContent ?? '');
       }}
-      onBlur={(e) => onBlurText?.((e.currentTarget as HTMLElement).textContent ?? '')}
-      dangerouslySetInnerHTML={{ __html: initial.current }}
+      dangerouslySetInnerHTML={initial.current}
     />
   );
 }
@@ -190,13 +258,15 @@ export function EditableRich({
   placeholder?: string;
 }) {
   const ref = useRef<HTMLElement | null>(null);
-  const cb = useRef(onChange);
-  cb.current = onChange;
+  const pipeline = useCommitPipeline((el) => el.innerHTML, onChange);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   useEffect(() => {
     const el = ref.current;
-    if (el) richRegistry.set(el, (html) => cb.current(html));
+    if (el) richRegistry.set(el, (html) => onChangeRef.current(html));
   }, []);
-  const initial = useRef(sanitizeHtml(value));
+  // 同 EditableText：{__html} 对象引用必须恒定，否则 React 19 每次更新都重写 DOM
+  const initial = useRef({ __html: sanitizeHtml(value) });
   const Tag = as as 'div';
   return (
     <Tag
@@ -209,12 +279,9 @@ export function EditableRich({
       suppressContentEditableWarning
       spellCheck={false}
       data-ph={placeholder}
-      onInput={(e: FormEvent<HTMLElement>) => onChange(e.currentTarget.innerHTML)}
-      onPaste={(e: ClipboardEvent<HTMLElement>) => {
-        e.preventDefault();
-        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
-      }}
-      dangerouslySetInnerHTML={{ __html: initial.current }}
+      {...pipeline.handlers}
+      onBlur={(e: FormEvent<HTMLElement>) => pipeline.commit(e.currentTarget)}
+      dangerouslySetInnerHTML={initial.current}
     />
   );
 }
@@ -358,7 +425,12 @@ export function Chips({
             value={item}
             placeholder="标签"
             onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))}
-            onEnter={add}
+            onEnter={(t) => {
+              // 提交当前文本 + 新增空 chip 必须是一次原子写入，分两次 setState 会互相覆盖
+              pendingFocus.current = true;
+              bump();
+              onChange([...items.map((x, xi) => (xi === i ? t : x)), '']);
+            }}
             onBlurText={(t) => {
               if (!t.trim()) removeAt(i);
             }}
@@ -439,7 +511,10 @@ export function LTList({
               value={it[locale]}
               placeholder="输入内容"
               onChange={(v) => onChange(items.map((x, xi) => (xi === i ? setLT(x, locale, v) : x)))}
-              onEnter={add}
+              onEnter={(t) => {
+                bump();
+                onChange([...items.map((x, xi) => (xi === i ? setLT(x, locale, t) : x)), makeLocalizedText()]);
+              }}
             />
             <button
               type="button"
@@ -585,14 +660,53 @@ export function UploadButton({
 
 // ---------------------------------------------------------------------------
 // 研究条目配图（展示组件，公开页与编辑抽屉共用）
+// 编辑模式下图片下缘有拖拽手柄：直接拖动改框高（自适应模式拖动后自动切为
+// 固定·裁剪），双击手柄恢复自适应。拖动过程直改 DOM，松手才提交状态。
 // ---------------------------------------------------------------------------
 export function ResearchMediaView({ item, onClick }: { item: ResearchItem; onClick?: () => void }) {
+  const edit = useEdit();
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [dragH, setDragH] = useState<number | null>(null);
   const mode = item.imageMode === 'cover' || item.imageMode === 'contain' ? item.imageMode : 'auto';
   const height = Math.round(Number(item.imageHeight)) || 190;
   if (!item.image && !item.pdf) return null;
+
+  const patch = (p: Partial<ResearchItem>) =>
+    edit?.set((c) => ({ ...c, recentResearch: updIn(c.recentResearch, item.id, p) }));
+
+  const startDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    if (!edit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const box = boxRef.current;
+    if (!box) return;
+    const handle = e.currentTarget as HTMLElement;
+    const startY = e.clientY;
+    const startH = box.getBoundingClientRect().height;
+    let latest = Math.round(startH);
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.min(640, Math.max(90, Math.round(startH + (ev.clientY - startY))));
+      box.style.height = `${latest}px`;
+      setDragH(latest);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      box.style.height = '';
+      setDragH(null);
+      patch({ imageHeight: latest, imageMode: mode === 'auto' ? 'cover' : mode });
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  };
+
   return (
     <div
-      className={cx('researchMedia', `mode-${mode}`, onClick && 'clickable')}
+      ref={boxRef}
+      className={cx('researchMedia', `mode-${mode}`, onClick && 'clickable', dragH !== null && 'dragging')}
       style={mode === 'auto' ? undefined : { height }}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
@@ -604,6 +718,21 @@ export function ResearchMediaView({ item, onClick }: { item: ResearchItem; onCli
           <FileText size={22} />
           <span>PDF 附件</span>
         </div>
+      )}
+      {dragH !== null && <span className="resizeBadge">{dragH}px</span>}
+      {edit && (
+        <span
+          className="resizeHandle"
+          title="拖动调整图片框高度 · 双击恢复自适应"
+          onPointerDown={startDrag}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            patch({ imageMode: 'auto' });
+          }}
+        >
+          <GripHorizontal size={13} />
+        </span>
       )}
     </div>
   );
@@ -886,7 +1015,10 @@ function ResearchMediaPanel({ id, content, api }: PanelProps & { id: string }) {
             </button>
           ))}
         </div>
-        <p className="fieldHint">自适应＝按图片真实比例完整展示（论文长页推荐）；固定＝统一框高，超出部分裁剪或留边。</p>
+        <p className="fieldHint">
+          自适应＝按图片真实比例完整展示；固定＝统一框高，超出部分裁剪或留边。也可以直接在卡片图片下缘
+          <b>拖动手柄</b>调高度（双击手柄恢复自适应）。
+        </p>
       </div>
       <div className="editorField">
         <span className="fieldLabel">

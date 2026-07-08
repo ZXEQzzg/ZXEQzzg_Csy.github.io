@@ -93,12 +93,19 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  pdf: string;`);
   lines.push(`};`);
   lines.push(``);
+  lines.push(`export type TickerItem = {`);
+  lines.push(`  id: string;`);
+  lines.push(`  text: LocalizedText;`);
+  lines.push(`};`);
+  lines.push(``);
   lines.push(`export type SiteContent = {`);
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
   lines.push(`    avatar: string;`);
   lines.push(`    mark?: string;`);
   lines.push(`    siteTitle?: string;`);
+  lines.push(`    tickerLabel?: LocalizedText;`);
+  lines.push(`    ticker?: TickerItem[];`);
   lines.push(`    headline: LocalizedText;`);
   lines.push(`    intro: LocalizedText;`);
   lines.push(`    research: LocalizedText;`);
@@ -115,6 +122,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  courses: InfoModule[];`);
   lines.push(`  major: InfoModule[];`);
   lines.push(`  recentResearch: ResearchItem[];`);
+  lines.push(`  sectionTitles?: Record<string, LocalizedText>;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };`);
@@ -126,6 +134,12 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`    avatar: ${q(data.profile.avatar ?? '')},`);
   lines.push(`    mark: ${q(data.profile.mark ?? 'AI')},`);
   lines.push(`    siteTitle: ${q(data.profile.siteTitle ?? 'ZXEQzzg Csy Portfolio')},`);
+  lines.push(`    tickerLabel: ${genLT(data.profile.tickerLabel ?? { zh: '近期内容', en: 'Recent', ko: '최근 소식' })},`);
+  lines.push(`    ticker: [`);
+  for (const t of data.profile.ticker ?? []) {
+    lines.push(`      { id: ${q(t.id)}, text: ${genLT(t.text)} },`);
+  }
+  lines.push(`    ],`);
   lines.push(`    headline: ${genLT(data.profile.headline)},`);
   lines.push(`    intro: ${genLT(data.profile.intro)},`);
   lines.push(`    research: ${genLT(data.profile.research)},`);
@@ -229,6 +243,13 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`    },`);
   }
   lines.push(`  ],`);
+
+  lines.push(`  sectionTitles: {`);
+  for (const [key, lt] of Object.entries(data.sectionTitles ?? {})) {
+    if (!lt) continue;
+    lines.push(`    ${JSON.stringify(key)}: ${genLT(lt)},`);
+  }
+  lines.push(`  },`);
 
   lines.push(`};`);
 

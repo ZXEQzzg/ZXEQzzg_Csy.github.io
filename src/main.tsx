@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  Activity,
   BookOpen,
   BriefcaseBusiness,
   ChevronLeft,
@@ -22,6 +23,7 @@ import {
   PanelsTopLeft,
   Pencil,
   Phone,
+  Plus,
   Sparkles,
   Sun,
   User,
@@ -38,6 +40,7 @@ import {
   type ResearchItem,
   type SiteContent,
   type ThemeMode,
+  type TickerItem,
   type TimelineProject,
 } from './data/siteContent';
 import { assetUrl, makeLocalizedText } from './utils/editorUtils';
@@ -45,6 +48,7 @@ import {
   AddGhost,
   AdminEditor,
   Chips,
+  EditableText,
   ItemToolbar,
   LT,
   LTList,
@@ -72,6 +76,39 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   research: { zh: '近期研究方向', en: 'Recent Research', ko: '최근 연구' },
 };
+
+// 板块标题：优先用户在编辑器里改过的 sectionTitles，缺省回落到内置三语标题
+const secLT = (content: SiteContent, key: SectionKey): LocalizedText =>
+  (content.sectionTitles?.[key] as LocalizedText | undefined) ?? sectionLabels[key];
+
+/** 可就地编辑的板块标题（写入 content.sectionTitles，导航/计数处同步更新） */
+function SectionTitleLT({
+  content,
+  locale,
+  k,
+  as = 'h2',
+  className,
+}: {
+  content: SiteContent;
+  locale: Locale;
+  k: SectionKey;
+  as?: 'h2' | 'span';
+  className?: string;
+}) {
+  const edit = useEdit();
+  return (
+    <LT
+      value={secLT(content, k)}
+      locale={locale}
+      as={as}
+      className={className}
+      placeholder="板块标题"
+      onChange={(v) =>
+        edit?.set((c) => ({ ...c, sectionTitles: { ...(c.sectionTitles ?? {}), [k]: setLT(secLT(c, k), locale, v) } }))
+      }
+    />
+  );
+}
 
 // 把旧草稿补齐到最新结构：老的 localStorage 草稿缺 avatar / images / resume /
 // recentResearch 新字段，不补齐编辑器会崩，所以入口统一 normalize。
@@ -105,6 +142,18 @@ function migrateContent(parsed: SiteContent): SiteContent {
         note: r.note && typeof r.note === 'object' ? r.note : makeLocalizedText(''),
       }))
     : [];
+  if (!content.sectionTitles || typeof content.sectionTitles !== 'object') content.sectionTitles = {};
+  if (content.profile) {
+    content.profile.ticker = Array.isArray(content.profile.ticker)
+      ? content.profile.ticker.map((t, i) => ({
+          id: typeof t?.id === 'string' ? t.id : `ticker-${i}`,
+          text: t?.text && typeof t.text === 'object' ? t.text : makeLocalizedText(''),
+        }))
+      : [];
+    if (!content.profile.tickerLabel || typeof content.profile.tickerLabel !== 'object') {
+      content.profile.tickerLabel = { zh: '近期内容', en: 'Recent', ko: '최근 소식' };
+    }
+  }
   return content;
 }
 
@@ -422,11 +471,11 @@ function Portfolio({
 
           <section className="microPanel">
             <div>
-              <span>{sectionLabels.experience[locale]}</span>
+              <span>{secLT(content, 'experience')[locale]}</span>
               <strong>{content.timelineProjects.length}</strong>
             </div>
             <div>
-              <span>{sectionLabels.gallery[locale]}</span>
+              <span>{secLT(content, 'gallery')[locale]}</span>
               <strong>{content.galleryProjects.length}</strong>
             </div>
           </section>
@@ -479,7 +528,7 @@ function Portfolio({
                 }}
               >
                 <span className="railDot" aria-hidden="true" />
-                <span className="railLabel">{sectionLabels[section][locale]}</span>
+                <span className="railLabel">{secLT(content, section)[locale]}</span>
               </a>
             ))}
           </nav>
@@ -487,9 +536,11 @@ function Portfolio({
           <div className="mainFlow">
             <section id="intro" className="introBand reveal">
               <p className="eyebrow">
-                <Sparkles size={14} /> {sectionLabels.intro[locale]}
+                <Sparkles size={14} />
+                <SectionTitleLT content={content} locale={locale} k="intro" as="span" />
               </p>
               <LT
+                rich
                 value={content.profile.headline}
                 locale={locale}
                 as="h2"
@@ -502,6 +553,7 @@ function Portfolio({
                 value={content.profile.intro}
                 locale={locale}
                 as="p"
+                className="heroIntro"
                 placeholder="个人简介"
                 onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, intro: setLT(c.profile.intro, locale, v) } }))}
               />
@@ -514,6 +566,7 @@ function Portfolio({
                 placeholder="研究方向"
                 onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, research: setLT(c.profile.research, locale, v) } }))}
               />
+              <TickerStrip content={content} locale={locale} />
             </section>
 
             <SkillsSection content={content} locale={locale} />
@@ -521,12 +574,12 @@ function Portfolio({
             <GallerySection content={content} locale={locale} onOpenModal={setGalleryModalId} />
 
             <section id="major" className="moduleSection reveal">
-              <SectionHeading index={4} icon={<GraduationCap size={17} />} title={sectionLabels.major[locale]} />
+              <SectionHeading index={4} icon={<GraduationCap size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="major" />} />
               <InfoGrid modules={content.major} locale={locale} listKey="major" addLabel="添加专业模块" />
             </section>
 
             <section id="courses" className="moduleSection reveal">
-              <SectionHeading index={5} icon={<BookOpen size={17} />} title={sectionLabels.courses[locale]} />
+              <SectionHeading index={5} icon={<BookOpen size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="courses" />} />
               <InfoGrid modules={content.courses} locale={locale} listKey="courses" addLabel="添加课程" />
             </section>
 
@@ -549,6 +602,87 @@ function Portfolio({
         <GalleryModal project={galleryProject} locale={locale} onClose={() => setGalleryModalId(null)} onOpenImage={openLightbox} />
       )}
     </main>
+  );
+}
+
+// ===== 近期内容滚动条（个人介绍板块内，右→左循环） =====
+const defaultTickerLabel: LocalizedText = { zh: '近期内容', en: 'Recent', ko: '최근 소식' };
+
+function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale }) {
+  const edit = useEdit();
+  const items = content.profile.ticker ?? [];
+  const label = content.profile.tickerLabel ?? defaultTickerLabel;
+  if (!edit && items.filter((t) => t.text[locale].trim()).length === 0) return null;
+
+  const setTicker = (next: TickerItem[]) => edit?.set((c) => ({ ...c, profile: { ...c.profile, ticker: next } }));
+  const addItem = (list: TickerItem[]) => [...list, { id: `ticker-${Date.now()}`, text: makeLocalizedText('') }];
+
+  const labelNode = (
+    <span className="tickerLabel">
+      <Activity size={12} />
+      <LT
+        value={label}
+        locale={locale}
+        as="span"
+        placeholder="近期内容"
+        onChange={(v) =>
+          edit?.set((c) => ({ ...c, profile: { ...c.profile, tickerLabel: setLT(c.profile.tickerLabel ?? defaultTickerLabel, locale, v) } }))
+        }
+      />
+    </span>
+  );
+
+  if (edit) {
+    return (
+      <div className="tickerWrap editing">
+        {labelNode}
+        <div className="tickerEditList">
+          {items.map((t) => (
+            <span className="tickerItem" key={`${edit.session}:${locale}:${t.id}`}>
+              <span className="tickerDot" />
+              <EditableText
+                value={t.text[locale]}
+                placeholder="内容"
+                onChange={(v) => setTicker(items.map((x) => (x.id === t.id ? { ...x, text: setLT(x.text, locale, v) } : x)))}
+                onEnter={(v) =>
+                  setTicker(addItem(items.map((x) => (x.id === t.id ? { ...x, text: setLT(x.text, locale, v) } : x))))
+                }
+              />
+              <button
+                type="button"
+                className="chipX"
+                title="删除"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setTicker(items.filter((x) => x.id !== t.id))}
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          <button type="button" className="chipAdd" title="添加条目" onClick={() => setTicker(addItem(items))}>
+            <Plus size={12} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const visible = items.filter((t) => t.text[locale].trim());
+  const loop = [...visible, ...visible];
+  return (
+    <div className="tickerWrap" style={{ '--tickerDur': `${Math.max(16, visible.length * 6)}s` } as CSSProperties}>
+      {labelNode}
+      <div className="tickerViewport">
+        <div className="tickerTrack">
+          {loop.map((t, i) => (
+            <span className="tickerItem" key={`${t.id}-${i}`}>
+              <span className="tickerDot" />
+              <span>{t.text[locale]}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -645,7 +779,7 @@ function ExperienceSection({
   const projects = content.timelineProjects;
   return (
     <section id="experience" className="moduleSection reveal">
-      <SectionHeading index={2} icon={<BriefcaseBusiness size={17} />} title={sectionLabels.experience[locale]} />
+      <SectionHeading index={2} icon={<BriefcaseBusiness size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="experience" />} />
       <div className="experienceList">
         {projects.map((project, i) => (
           <TimelineProjectCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenImages={onOpenImages} />
@@ -847,7 +981,7 @@ function GallerySection({
   const projects = content.galleryProjects;
   return (
     <section id="gallery" className="moduleSection reveal">
-      <SectionHeading index={3} icon={<Sparkles size={17} />} title={sectionLabels.gallery[locale]} />
+      <SectionHeading index={3} icon={<Sparkles size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="gallery" />} />
       <div className="academicGallery">
         {projects.map((project, i) => (
           <GalleryCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenModal={onOpenModal} />
@@ -1039,7 +1173,7 @@ function ResearchSection({
   if (!edit && items.length === 0) return null;
   return (
     <section id="research" className="moduleSection reveal">
-      <SectionHeading index={6} icon={<FlaskConical size={17} />} title={sectionLabels.research[locale]} />
+      <SectionHeading index={6} icon={<FlaskConical size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="research" />} />
       <div className="researchGrid">
         {items.map((item, i) => (
           <ResearchCard key={item.id} item={item} index={i} total={items.length} locale={locale} onOpenImages={onOpenImages} />

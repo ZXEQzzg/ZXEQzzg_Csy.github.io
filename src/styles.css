@@ -594,11 +594,12 @@ a.contactRow:hover {
 .introBand {
   position: relative;
   overflow: hidden;
-  min-height: 320px;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(30px, 5vw, 64px);
+  gap: 16px;
+  padding: clamp(30px, 5vw, 60px);
   border: 1px solid var(--soft);
   border-radius: var(--radius);
   background:
@@ -635,24 +636,122 @@ a.contactRow:hover {
 .introBand > * {
   position: relative;
   max-width: 820px;
+  margin: 0; /* 垂直间距统一交给 flex gap，避免文字挤在一起 */
+}
+
+.introBand .eyebrow {
+  margin: 0;
 }
 
 .heroHeadline {
   font-size: clamp(1.55rem, 3vw, 2.5rem);
-  line-height: 1.16;
-  margin-bottom: 14px;
+  line-height: 1.28;
 }
 
-.introBand p:last-child {
-  margin-bottom: 0;
+.heroIntro {
+  font-size: 1.02rem;
+  line-height: 1.95;
+  letter-spacing: 0.01em;
 }
 
 .introBand .research {
-  margin-top: 8px;
-  padding: 12px 16px;
+  padding: 13px 17px;
   border-left: 2px solid var(--accent);
   border-radius: 0 10px 10px 0;
   background: color-mix(in srgb, var(--accent) 6%, transparent);
+  line-height: 1.85;
+}
+
+/* 近期内容滚动条：右→左无限循环，悬停暂停，两端渐隐 */
+.introBand > .tickerWrap {
+  max-width: none;
+}
+
+.tickerWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--soft);
+}
+
+.tickerWrap.editing {
+  align-items: flex-start;
+}
+
+.tickerLabel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  color: var(--accent);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tickerViewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.tickerTrack {
+  display: flex;
+  width: max-content;
+  animation: tickerMove var(--tickerDur, 24s) linear infinite;
+}
+
+.tickerWrap:hover .tickerTrack {
+  animation-play-state: paused;
+}
+
+.tickerItem {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: 10px; /* 用 margin 而非 flex gap：保证前后两份列表等宽，-50% 循环无缝 */
+  padding: 6px 12px;
+  border: 1px solid var(--soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.tickerDot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.tickerEditList {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tickerEditList .tickerItem {
+  margin-right: 0;
+  white-space: normal;
+}
+
+@keyframes tickerMove {
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .moduleSection {
@@ -1065,8 +1164,9 @@ a.contactRow:hover {
   overflow: hidden;
 }
 
-/* 配图：auto=按真实比例；cover/contain=行内 style 固定框高 */
+/* 配图：auto=按真实比例；cover/contain=行内 style 固定框高；编辑态可拖下缘手柄调高 */
 .researchMedia {
+  position: relative;
   overflow: hidden;
   border-bottom: 1px solid var(--soft);
   background: color-mix(in srgb, var(--bg) 55%, black 8%);
@@ -1084,6 +1184,8 @@ a.contactRow:hover {
 .researchMedia.mode-cover img {
   height: 100%;
   object-fit: cover;
+  /* 从顶部裁剪：论文/长图收窄框高时保留标题区 */
+  object-position: top;
 }
 
 .researchMedia.mode-contain img {
@@ -1103,6 +1205,55 @@ a.contactRow:hover {
   padding: 18px;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+/* 拖拽调高手柄 */
+.resizeHandle {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 17px;
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.62);
+  color: #fff;
+  cursor: ns-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  touch-action: none;
+  backdrop-filter: blur(6px);
+}
+
+.researchMedia:hover .resizeHandle,
+.researchMedia.dragging .resizeHandle {
+  opacity: 1;
+}
+
+.researchMedia.dragging {
+  border-bottom-color: var(--accent);
+}
+
+.researchMedia.dragging img {
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.resizeBadge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(8, 10, 14, 0.72);
+  color: #fff;
+  font-size: 0.72rem;
+  font-family: var(--font-display);
 }
 
 .researchBody {
@@ -1311,6 +1462,7 @@ body[data-editing] .editable {
   outline-offset: 2.5px;
   transition: outline-color 0.15s ease, background 0.15s ease;
   cursor: text;
+  caret-color: var(--accent);
 }
 
 /* 空的可编辑元素保证有可点击面积 */
@@ -2164,6 +2316,16 @@ input[type='range'] {
   .reveal {
     opacity: 1;
     transform: none;
+  }
+
+  .tickerTrack {
+    animation: none;
+  }
+
+  .tickerViewport {
+    overflow-x: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
   }
 
   *,

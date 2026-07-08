@@ -61,6 +61,12 @@ export type ResumeBlock = {
   pdf: string;
 };
 
+/** 「近期内容」横向滚动条里的一个条目 */
+export type TickerItem = {
+  id: string;
+  text: LocalizedText;
+};
+
 export type SiteContent = {
   profile: {
     name: string;
@@ -69,6 +75,10 @@ export type SiteContent = {
     mark?: string;
     /** 顶栏站点标题 */
     siteTitle?: string;
+    /** 个人介绍板块里「近期内容」滚动条的标签文字 */
+    tickerLabel?: LocalizedText;
+    /** 「近期内容」滚动条目（公开页从右往左循环滚动） */
+    ticker?: TickerItem[];
     headline: LocalizedText;
     intro: LocalizedText;
     research: LocalizedText;
@@ -85,6 +95,8 @@ export type SiteContent = {
   courses: InfoModule[];
   major: InfoModule[];
   recentResearch: ResearchItem[];
+  /** 各板块标题覆写（key = intro/skills/experience/gallery/major/courses/research），缺省用内置三语标题 */
+  sectionTitles?: Record<string, LocalizedText>;
 };
 
 export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };
