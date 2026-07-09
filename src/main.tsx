@@ -57,6 +57,7 @@ import {
   ASSET_FOLDERS,
   AddGhost,
   AdminEditor,
+  BlurFill,
   CardWidthHandle,
   Chips,
   EditableText,
@@ -70,6 +71,7 @@ import {
   clampWidthPct,
   contentStorageKey,
   cx,
+  dragVertical,
   moveIn,
   setLT,
   updIn,
@@ -919,6 +921,12 @@ function SkillsSection({ content, locale }: { content: SiteContent; locale: Loca
 }
 
 // ===== 主要经历 =====
+/** 像素高度钳制：范围内取整，非法回落默认 */
+const clampH = (v: unknown, def: number, min: number, max: number) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= min && n <= max ? n : def;
+};
+
 function newTimelineProject(n: number): TimelineProject {
   return {
     id: `timeline-project-${Date.now()}`,
@@ -1017,7 +1025,9 @@ function TimelineProjectCard({
           <ProjectImageStrip
             images={project.images}
             title={project.title[locale]}
+            height={clampH(project.imageHeight, 220, 120, 560)}
             onOpen={(idx) => (edit ? edit.openDrawer({ type: 'timeline-media', id: project.id }) : onOpenImages(project.images, idx))}
+            onHeight={edit ? (h) => patch({ imageHeight: h }) : undefined}
           />
         ) : (
           edit && <AddGhost className="row" label="添加项目图片" onClick={() => edit.openDrawer({ type: 'timeline-media', id: project.id })} />
@@ -1042,15 +1052,61 @@ function TimelineProjectCard({
   );
 }
 
-// 项目图片模块：横向自适应滚动条，点击放大（编辑模式点击进图片管理）
-function ProjectImageStrip({ images, title, onOpen }: { images: string[]; title: string; onOpen: (index: number) => void }) {
+// 项目图片模块：每格宽度按图片真实比例自适应（同一高度下横图宽、竖图窄），
+// 横向滚动；留边时同图模糊铺底。编辑态可拖图片区下缘调高度（与卡片宽度互不影响）。
+function ProjectImageStrip({
+  images,
+  title,
+  height,
+  onOpen,
+  onHeight,
+}: {
+  images: string[];
+  title: string;
+  height: number;
+  onOpen: (index: number) => void;
+  onHeight?: (h: number) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [badge, setBadge] = useState<number | null>(null);
   return (
-    <div className={cx('imageStrip', images.length === 1 && 'single')}>
-      {images.map((src, i) => (
-        <button type="button" className="imageStripItem" key={`${src}-${i}`} onClick={() => onOpen(i)} aria-label={`${title} 图片 ${i + 1}`}>
-          <img src={assetUrl(src)} alt={`${title} ${i + 1}`} loading="lazy" />
-        </button>
-      ))}
+    <div className="imageStripWrap" ref={wrapRef} style={{ '--imgH': `${height}px` } as CSSProperties}>
+      <div className={cx('imageStrip', images.length === 1 && 'single')}>
+        {images.map((src, i) => (
+          <button type="button" className="imageStripItem" key={`${src}-${i}`} onClick={() => onOpen(i)} aria-label={`${title} 图片 ${i + 1}`}>
+            <BlurFill src={src} />
+            <img src={assetUrl(src)} alt={`${title} ${i + 1}`} loading="lazy" draggable={false} />
+          </button>
+        ))}
+      </div>
+      {onHeight && (
+        <span
+          className="resizeHandle"
+          title="拖动调整图片高度 · 双击恢复 220px"
+          onPointerDown={(e) =>
+            dragVertical(e, {
+              start: height,
+              min: 120,
+              max: 560,
+              onLive: (v) => {
+                wrapRef.current?.style.setProperty('--imgH', `${v}px`);
+                setBadge(v);
+              },
+              onEnd: (v) => {
+                wrapRef.current?.style.removeProperty('--imgH');
+                setBadge(null);
+                onHeight(v);
+              },
+            })
+          }
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onHeight(220);
+          }}
+        />
+      )}
+      {badge !== null && <span className="resizeBadge">{badge}px</span>}
     </div>
   );
 }
@@ -1186,6 +1242,9 @@ function GalleryCard({
   const patch = (p: Partial<GalleryProject>) => edit?.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, project.id, p) }));
   const widthPct = clampWidthPct(project.widthPct, 33.3);
   const { cardRef, wBadge, startResize } = useWidthDrag(widthPct, (w) => patch({ widthPct: w }));
+  const coverH = clampH(project.coverHeight, 200, 120, 520);
+  const coverRef = useRef<HTMLDivElement>(null);
+  const [coverBadge, setCoverBadge] = useState<number | null>(null);
   return (
     <article
       ref={cardRef}
@@ -1206,13 +1265,42 @@ function GalleryCard({
           ]}
         />
       )}
-      <div className="galleryCover">
-        <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" />
+      <div className="galleryCover" ref={coverRef} style={{ '--coverH': `${coverH}px` } as CSSProperties}>
+        {project.cover && <BlurFill src={project.cover} />}
+        <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" draggable={false} />
         {!edit && (
           <span className="galleryMore">
             <Maximize2 size={13} /> 查看详情
           </span>
         )}
+        {edit && (
+          <span
+            className="resizeHandle"
+            title="拖动调整封面高度 · 双击恢复 200px"
+            onPointerDown={(e) =>
+              dragVertical(e, {
+                start: coverH,
+                min: 120,
+                max: 520,
+                onLive: (v) => {
+                  coverRef.current?.style.setProperty('--coverH', `${v}px`);
+                  setCoverBadge(v);
+                },
+                onEnd: (v) => {
+                  coverRef.current?.style.removeProperty('--coverH');
+                  setCoverBadge(null);
+                  patch({ coverHeight: v });
+                },
+              })
+            }
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              patch({ coverHeight: 200 });
+            }}
+          />
+        )}
+        {coverBadge !== null && <span className="resizeBadge">{coverBadge}px</span>}
       </div>
       <div className="galleryCardBody">
         <LT
@@ -1273,6 +1361,7 @@ function GalleryModal({
           <X size={18} />
         </button>
         <div className="galleryModalCover" onClick={() => project.cover && onOpenImage([project.cover], 0)} title="点击看大图">
+          {project.cover && <BlurFill src={project.cover} />}
           <img src={assetUrl(project.cover)} alt={project.title[locale]} />
         </div>
         <div className="galleryModalBody">

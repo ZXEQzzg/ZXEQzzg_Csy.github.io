@@ -1064,7 +1064,25 @@ a.contactRow:hover {
   line-height: 1.8;
 }
 
-/* 项目图片模块：横向自适应滚动，固定框（不随图片比例跳动） */
+/* 同图高斯模糊铺底：contain 留边时垫在图片后，让「边边」自然（各图区共用） */
+.blurFill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) saturate(1.15);
+  opacity: 0.45;
+  transform: scale(1.25);
+  pointer-events: none;
+}
+
+/* 项目图片模块：每格宽度按图片真实比例自适应（同高下横图宽、竖图窄），
+   高度由 --imgH 控制（编辑态拖下缘/抽屉滑杆），横向滚动 */
+.imageStripWrap {
+  position: relative;
+}
+
 .imageStrip {
   display: flex;
   gap: 12px;
@@ -1080,23 +1098,23 @@ a.contactRow:hover {
 }
 
 .imageStripItem {
+  position: relative;
   flex: 0 0 auto;
   scroll-snap-align: start;
-  width: clamp(240px, 44%, 360px);
-  height: 220px;
+  width: auto;
+  height: var(--imgH, 220px);
+  max-width: min(560px, 92%);
   padding: 0;
   border: 1px solid var(--soft);
   border-radius: 12px;
   overflow: hidden;
-  /* 留边处的底色，让 letterbox 看着是有意为之 */
   background: color-mix(in srgb, var(--bg) 55%, black 8%);
   cursor: zoom-in;
   transition: transform 0.18s ease, border-color 0.18s ease;
 }
 
 .imageStrip.single .imageStripItem {
-  width: min(100%, 460px);
-  height: 260px;
+  max-width: 100%;
 }
 
 .imageStripItem:hover {
@@ -1105,9 +1123,12 @@ a.contactRow:hover {
 }
 
 .imageStripItem img {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: 100%;
+  width: auto;
   height: 100%;
+  max-width: 100%;
   object-fit: contain;
 }
 
@@ -1178,18 +1199,27 @@ a.contactRow:hover {
 .galleryCover {
   position: relative;
   overflow: hidden;
+  height: var(--coverH, 200px);
+  background: color-mix(in srgb, var(--bg) 55%, black 8%);
 }
 
 .galleryCover img {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
+  height: 100%;
+  /* 完整显示不裁切，留边由 blurFill 补 */
+  object-fit: contain;
   transition: transform 0.45s ease;
 }
 
 .galleryCard:hover .galleryCover img {
   transform: scale(1.045);
+}
+
+.galleryMore {
+  z-index: 2;
 }
 
 .galleryMore {
@@ -1273,16 +1303,20 @@ a.contactRow:hover {
 }
 
 .galleryModalCover {
+  position: relative;
+  overflow: hidden;
   cursor: zoom-in;
   border-bottom: 1px solid var(--soft);
   background: color-mix(in srgb, var(--bg) 55%, black 8%);
 }
 
 .galleryModalCover img {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   max-height: 46vh;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .galleryModalBody {
@@ -1443,9 +1477,15 @@ a.contactRow:hover {
   backdrop-filter: blur(6px);
 }
 
-.researchMedia:hover .resizeHandle,
+:is(.researchMedia, .imageStripWrap, .galleryCover):hover .resizeHandle,
 .researchMedia.dragging .resizeHandle {
   opacity: 1;
+}
+
+/* contain 模式的研究配图：图层压在模糊铺底之上 */
+.researchMedia img {
+  position: relative;
+  z-index: 1;
 }
 
 .researchMedia.dragging {
@@ -2626,10 +2666,6 @@ input[type='range'] {
 }
 
 @media (max-width: 640px) {
-  .imageStripItem {
-    width: 78%;
-  }
-
   .lightboxNav {
     width: 40px;
     height: 40px;

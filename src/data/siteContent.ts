@@ -22,6 +22,8 @@ export type TimelineProject = {
   details: LocalizedText[];
   /** 卡片占行宽百分比（24–100，默认 100），编辑页拖卡片右缘调整 */
   widthPct?: number;
+  /** 图片条高度 px（120–560，默认 220），编辑页拖图片区下缘调整；与卡片宽度互不影响 */
+  imageHeight?: number;
 };
 
 export type GalleryProject = {
@@ -36,6 +38,8 @@ export type GalleryProject = {
   description: LocalizedText;
   /** 卡片占行宽百分比（24–100，默认 33.3 即三列），编辑页拖卡片右缘调整 */
   widthPct?: number;
+  /** 封面高度 px（120–520，默认 200），编辑页拖封面下缘调整；封面完整显示、模糊铺底留边 */
+  coverHeight?: number;
 };
 
 export type InfoModule = {

@@ -175,6 +175,40 @@ export function useWidthDrag(widthPct: number, onCommit: (w: number) => void) {
   return { cardRef, wBadge, startResize };
 }
 
+/**
+ * 通用竖向拖拽：pointer 捕获 + 实时回调 + 松手提交。
+ * onLive 里直接改 DOM（style/CSS 变量），不触发整树重渲染；onEnd 才写状态。
+ */
+export function dragVertical(
+  e: ReactPointerEvent<HTMLElement>,
+  opts: { start: number; min: number; max: number; onLive: (v: number) => void; onEnd: (v: number) => void }
+) {
+  e.preventDefault();
+  e.stopPropagation();
+  const handle = e.currentTarget as HTMLElement;
+  const startY = e.clientY;
+  let latest = Math.round(opts.start);
+  handle.setPointerCapture(e.pointerId);
+  const onMove = (ev: PointerEvent) => {
+    latest = Math.min(opts.max, Math.max(opts.min, Math.round(opts.start + (ev.clientY - startY))));
+    opts.onLive(latest);
+  };
+  const onUp = () => {
+    handle.removeEventListener('pointermove', onMove);
+    handle.removeEventListener('pointerup', onUp);
+    handle.removeEventListener('pointercancel', onUp);
+    opts.onEnd(latest);
+  };
+  handle.addEventListener('pointermove', onMove);
+  handle.addEventListener('pointerup', onUp);
+  handle.addEventListener('pointercancel', onUp);
+}
+
+/** 同图高斯模糊铺底：contain 留边时垫在图片后面，让「边边」看起来自然 */
+export function BlurFill({ src }: { src: string }) {
+  return <span className="blurFill" style={{ backgroundImage: `url("${assetUrl(src)}")` }} aria-hidden="true" />;
+}
+
 /** 卡片右缘的拖宽手柄（编辑态才渲染） */
 export function CardWidthHandle({
   start,
@@ -807,7 +841,10 @@ export function ResearchMediaView({ item, onClick }: { item: ResearchItem; onCli
       role={onClick ? 'button' : undefined}
     >
       {item.image ? (
-        <img src={assetUrl(item.image)} alt="" loading="lazy" />
+        <>
+          {mode === 'contain' && <BlurFill src={item.image} />}
+          <img src={assetUrl(item.image)} alt="" loading="lazy" />
+        </>
       ) : (
         <div className="pdfPlaceholder">
           <FileText size={22} />
@@ -1001,16 +1038,33 @@ function LinkPanel({ index, content, api, onClose }: PanelProps & { index: numbe
 }
 
 function TimelineMediaPanel({ project, api }: { project: TimelineProject; api: EditApi }) {
+  const imgH = (() => {
+    const n = Math.round(Number(project.imageHeight));
+    return Number.isFinite(n) && n >= 120 && n <= 560 ? n : 220;
+  })();
   return (
     <>
       <ImageListEditor
-        label="项目图片（单图铺满、多图横向滑动；点击可全屏查看）"
+        label="项目图片（每格宽度按图片比例自适应，多图横向滑动；点击可全屏查看）"
         items={project.images}
         onChange={(images) => api.set((c) => ({ ...c, timelineProjects: updIn(c.timelineProjects, project.id, { images }) }))}
         api={api}
         folder={ASSET_FOLDERS.experience}
       />
-      <p className="fieldHint">图片顺序即展示顺序，可用 ↑↓ 调整。</p>
+      <div className="editorField">
+        <span className="fieldLabel">图片高度 {imgH}px（也可直接拖卡片上图片区下缘，双击恢复 220px）</span>
+        <input
+          type="range"
+          min={120}
+          max={560}
+          step={10}
+          value={imgH}
+          onChange={(e) =>
+            api.set((c) => ({ ...c, timelineProjects: updIn(c.timelineProjects, project.id, { imageHeight: Number(e.target.value) }) }))
+          }
+        />
+      </div>
+      <p className="fieldHint">图片顺序即展示顺序，可用 ↑↓ 调整；高度与卡片宽度互不影响。</p>
     </>
   );
 }
@@ -1019,6 +1073,10 @@ function GalleryCoverPanel({ id, content, api }: PanelProps & { id: string }) {
   const project = content.galleryProjects.find((p) => p.id === id);
   if (!project) return <p className="fieldHint">该项目已删除。</p>;
   const patch = (cover: string) => api.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, id, { cover }) }));
+  const coverH = (() => {
+    const n = Math.round(Number(project.coverHeight));
+    return Number.isFinite(n) && n >= 120 && n <= 520 ? n : 200;
+  })();
   return (
     <>
       <div className="drawerPreview">
@@ -1028,7 +1086,18 @@ function GalleryCoverPanel({ id, content, api }: PanelProps & { id: string }) {
         <UploadButton api={api} folder={ASSET_FOLDERS.gallery} label="上传封面" onUploaded={patch} />
       </div>
       <Field label="封面路径" value={project.cover} onChange={patch} placeholder="/assets/文件名" />
-      <p className="fieldHint">上传归档到 /assets/{ASSET_FOLDERS.gallery}/</p>
+      <div className="editorField">
+        <span className="fieldLabel">封面高度 {coverH}px（也可直接拖卡片封面下缘，双击恢复 200px）</span>
+        <input
+          type="range"
+          min={120}
+          max={520}
+          step={10}
+          value={coverH}
+          onChange={(e) => api.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, id, { coverHeight: Number(e.target.value) }) }))}
+        />
+      </div>
+      <p className="fieldHint">封面完整显示不裁切，留边用同图模糊铺底；上传归档到 /assets/{ASSET_FOLDERS.gallery}/</p>
     </>
   );
 }

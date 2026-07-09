@@ -37,6 +37,11 @@ export function serializeSiteContent(data: SiteContent): string {
     const n = Math.round(Number(v) * 10) / 10;
     return Number.isFinite(n) && n >= 24 && n <= 100 ? n : def;
   };
+  // 图片高度 px：范围内取整，否则回落默认值
+  const hp = (v: unknown, def: number, min: number, max: number): number => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= min && n <= max ? n : def;
+  };
 
   lines.push(`export type Locale = 'zh' | 'en' | 'ko';`);
   lines.push(``);
@@ -61,6 +66,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  outcome: LocalizedText;`);
   lines.push(`  details: LocalizedText[];`);
   lines.push(`  widthPct?: number;`);
+  lines.push(`  imageHeight?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type GalleryProject = {`);
@@ -74,6 +80,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  result: LocalizedText;`);
   lines.push(`  description: LocalizedText;`);
   lines.push(`  widthPct?: number;`);
+  lines.push(`  coverHeight?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type InfoModule = {`);
@@ -195,6 +202,7 @@ export function serializeSiteContent(data: SiteContent): string {
     }
     lines.push(`      ],`);
     lines.push(`      widthPct: ${wp(tp.widthPct, 100)},`);
+    lines.push(`      imageHeight: ${hp(tp.imageHeight, 220, 120, 560)},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
@@ -216,6 +224,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      result: ${genLT(gp.result)},`);
     lines.push(`      description: ${genLT(gp.description)},`);
     lines.push(`      widthPct: ${wp(gp.widthPct, 33.3)},`);
+    lines.push(`      coverHeight: ${hp(gp.coverHeight, 200, 120, 520)},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
