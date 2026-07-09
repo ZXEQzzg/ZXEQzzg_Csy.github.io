@@ -1154,14 +1154,56 @@ a.contactRow:hover {
    近期研究方向
    ========================================================================== */
 .researchGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 14px;
-  align-items: start; /* 自适应封面下卡片高度各异，不互相拉伸 */
+  align-items: flex-start; /* 卡片高度各异，不互相拉伸 */
+}
+
+/* --w = 卡片占行宽的百分比（拖右缘可调）。宽度公式让任意组合下 14px 间隙精确闭合：
+   一行内 w 加总为 100 时，恰好留出 (n-1) 个间隙的空间 */
+.researchGrid > * {
+  width: calc(var(--w, 50) * 1% - 14px + var(--w, 50) * 0.14px);
+  min-width: min(230px, 100%);
+  max-width: 100%;
 }
 
 .researchCard {
   overflow: hidden;
+}
+
+/* 卡片右缘横向拖宽手柄（编辑态） */
+.cardResizeHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  touch-action: none;
+}
+
+.cardResizeHandle::after {
+  content: '';
+  width: 4px;
+  height: 46px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 80%, transparent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.researchCard:hover .cardResizeHandle,
+.researchCard.resizing .cardResizeHandle {
+  opacity: 1;
+}
+
+.researchCard.resizing {
+  border-color: var(--accent);
 }
 
 /* 配图：auto=按真实比例；cover/contain=行内 style 固定框高；编辑态可拖下缘手柄调高 */
@@ -2376,9 +2418,17 @@ input[type='range'] {
   .infoGrid,
   .detailGrid,
   .academicGallery,
-  .researchGrid,
   .modalPills {
     grid-template-columns: 1fr;
+  }
+
+  /* 窄屏下研究卡片统一整行，不再按自定义宽度 */
+  .researchGrid > * {
+    width: 100%;
+  }
+
+  .cardResizeHandle {
+    display: none;
   }
 
   .drawer {

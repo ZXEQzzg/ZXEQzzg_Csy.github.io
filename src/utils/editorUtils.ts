@@ -86,6 +86,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  pdf?: string;`);
   lines.push(`  imageMode?: 'auto' | 'cover' | 'contain';`);
   lines.push(`  imageHeight?: number;`);
+  lines.push(`  widthPct?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type ResumeBlock = {`);
@@ -230,6 +231,7 @@ export function serializeSiteContent(data: SiteContent): string {
   for (const r of data.recentResearch ?? []) {
     const mode = r.imageMode === 'cover' || r.imageMode === 'contain' ? r.imageMode : 'auto';
     const height = Math.round(Number(r.imageHeight)) || 190;
+    const widthPct = Math.min(100, Math.max(24, Math.round(Number(r.widthPct)) || 50));
     lines.push(`    {`);
     lines.push(`      id: ${q(r.id)},`);
     lines.push(`      kind: ${q(r.kind)},`);
@@ -240,6 +242,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      pdf: ${q(r.pdf ?? '')},`);
     lines.push(`      imageMode: ${q(mode)},`);
     lines.push(`      imageHeight: ${height},`);
+    lines.push(`      widthPct: ${widthPct},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);

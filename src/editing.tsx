@@ -949,6 +949,7 @@ function ResearchMediaPanel({ id, content, api }: PanelProps & { id: string }) {
   const patch = (p: Partial<ResearchItem>) => api.set((c) => ({ ...c, recentResearch: updIn(c.recentResearch, id, p) }));
   const mode = item.imageMode === 'cover' || item.imageMode === 'contain' ? item.imageMode : 'auto';
   const height = Math.round(Number(item.imageHeight)) || 190;
+  const widthPct = Math.min(100, Math.max(24, Math.round(Number(item.widthPct)) || 50));
 
   const onPdf = async (file: File) => {
     setBusyPdf(true);
@@ -1033,6 +1034,10 @@ function ResearchMediaPanel({ id, content, api }: PanelProps & { id: string }) {
           disabled={mode === 'auto'}
           onChange={(e) => patch({ imageHeight: Number(e.target.value) })}
         />
+      </div>
+      <div className="editorField">
+        <span className="fieldLabel">卡片宽度 {widthPct}%（也可像窗口一样拖卡片右缘，双击恢复 50%）</span>
+        <input type="range" min={24} max={100} step={1} value={widthPct} onChange={(e) => patch({ widthPct: Number(e.target.value) })} />
       </div>
       <Field label="外部链接 URL（标题可点击跳转，可空）" value={item.link} onChange={(v) => patch({ link: v })} placeholder="https://arxiv.org/…" />
     </>

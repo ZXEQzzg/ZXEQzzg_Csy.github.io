@@ -54,6 +54,8 @@ export type ResearchItem = {
   imageMode?: 'auto' | 'cover' | 'contain';
   /** cover/contain 模式下的框高（px），编辑页可调 */
   imageHeight?: number;
+  /** 卡片占行宽的百分比（24–100，默认 50）；编辑页拖卡片右缘调整，像窗口一样横向拉 */
+  widthPct?: number;
 };
 
 export type ResumeBlock = {

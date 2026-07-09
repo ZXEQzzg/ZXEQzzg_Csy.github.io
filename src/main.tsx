@@ -1,4 +1,13 @@
-import { StrictMode, useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  StrictMode,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -136,6 +145,7 @@ function migrateContent(parsed: SiteContent): SiteContent {
         pdf: '',
         imageMode: 'auto' as const,
         imageHeight: 190,
+        widthPct: 50,
         ...r,
         kind: typeof r.kind === 'string' ? r.kind : '',
         link: typeof r.link === 'string' ? r.link : '',
@@ -1159,6 +1169,12 @@ function kindStyle(kind: string): CSSProperties {
   return { color: c, background: `color-mix(in srgb, ${c} 15%, transparent)` };
 }
 
+/** 卡片行宽百分比，钳制在 24–100，非法值回落 50 */
+const clampWidthPct = (v: unknown) => Math.min(100, Math.max(24, Math.round(Number(v) * 10) / 10 || 50));
+
+// 拖拽时的轻量吸附点：常用整分栏（1/4、1/3、1/2、2/3、3/4、整行）
+const WIDTH_SNAPS = [25, 33.3, 50, 66.7, 75, 100];
+
 function ResearchSection({
   content,
   locale,
@@ -1207,8 +1223,50 @@ function ResearchCard({
   const patch = (p: Partial<ResearchItem>) => edit?.set((c) => ({ ...c, recentResearch: updIn(c.recentResearch, item.id, p) }));
   const title = item.title[locale];
   const openMedia = edit ? () => edit.openDrawer({ type: 'research-media', id: item.id }) : undefined;
+
+  // 像窗口一样横向拉卡片：拖右缘改行宽百分比，拖动直改 CSS 变量，松手才提交状态
+  const widthPct = clampWidthPct(item.widthPct);
+  const cardRef = useRef<HTMLElement>(null);
+  const [wBadge, setWBadge] = useState<number | null>(null);
+
+  const startResize = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    if (!edit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const card = cardRef.current;
+    const grid = card?.parentElement;
+    if (!card || !grid) return;
+    const gridW = grid.getBoundingClientRect().width;
+    if (gridW <= 0) return;
+    const handle = e.currentTarget;
+    const startX = e.clientX;
+    const startPct = widthPct;
+    let latest = startPct;
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      let p = startPct + ((ev.clientX - startX) / gridW) * 100;
+      for (const snap of WIDTH_SNAPS) {
+        if (Math.abs(p - snap) < 1.6) p = snap;
+      }
+      latest = Math.min(100, Math.max(24, Math.round(p * 10) / 10));
+      card.style.setProperty('--w', String(latest));
+      setWBadge(latest);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      card.style.removeProperty('--w');
+      setWBadge(null);
+      patch({ widthPct: latest });
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  };
+
   return (
-    <article className="researchCard">
+    <article ref={cardRef} className={cx('researchCard', wBadge !== null && 'resizing')} style={{ '--w': widthPct } as CSSProperties}>
       {edit && (
         <ItemToolbar
           index={index}
@@ -1272,6 +1330,19 @@ function ResearchCard({
           />
         )}
       </div>
+      {edit && (
+        <span
+          className="cardResizeHandle"
+          title="拖动调整卡片宽度 · 双击恢复 50%"
+          onPointerDown={startResize}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            patch({ widthPct: 50 });
+          }}
+        />
+      )}
+      {wBadge !== null && <span className="resizeBadge">{wBadge}%</span>}
     </article>
   );
 }
