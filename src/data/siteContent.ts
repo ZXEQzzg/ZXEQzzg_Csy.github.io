@@ -20,6 +20,8 @@ export type TimelineProject = {
   role: LocalizedText;
   outcome: LocalizedText;
   details: LocalizedText[];
+  /** 卡片占行宽百分比（24–100，默认 100），编辑页拖卡片右缘调整 */
+  widthPct?: number;
 };
 
 export type GalleryProject = {
@@ -32,6 +34,8 @@ export type GalleryProject = {
   role: LocalizedText;
   result: LocalizedText;
   description: LocalizedText;
+  /** 卡片占行宽百分比（24–100，默认 33.3 即三列），编辑页拖卡片右缘调整 */
+  widthPct?: number;
 };
 
 export type InfoModule = {
@@ -67,12 +71,18 @@ export type ResumeBlock = {
 export type TickerItem = {
   id: string;
   text: LocalizedText;
+  /** 可选配图（上传到 /assets/Recent/），随条目一起滚动 */
+  image?: string;
+  /** 配图显示高度 px（36–200，默认 72），编辑页拖图片下缘调整 */
+  imageHeight?: number;
 };
 
 export type SiteContent = {
   profile: {
     name: string;
     avatar: string;
+    /** 个人照片（可多张，左栏轮播左右切换）；avatar 保留为第一张的兼容字段 */
+    avatars?: string[];
     /** 左上角小徽标文字（默认 AI） */
     mark?: string;
     /** 顶栏站点标题 */

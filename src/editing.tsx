@@ -44,7 +44,6 @@ import {
   Send,
   Trash2,
   Upload,
-  User,
   X,
 } from 'lucide-react';
 import {
@@ -82,9 +81,19 @@ export type EditApi = {
   session: number;
   set: (up: (c: SiteContent) => SiteContent) => void;
   openDrawer: (d: DrawerState) => void;
-  uploadFile: (file: File) => Promise<string | null>;
+  /** 上传到 public/assets/[folder/]，folder 为业务分类目录（如 'PaPer'） */
+  uploadFile: (file: File, folder?: string) => Promise<string | null>;
   toast: (msg: string) => void;
 };
+
+/** 各业务的图片分类目录（public/assets/ 下） */
+export const ASSET_FOLDERS = {
+  avatar: 'I',
+  experience: 'Main Experiences',
+  gallery: 'PPT',
+  research: 'PaPer',
+  ticker: 'Recent',
+} as const;
 
 const EditCtx = createContext<EditApi | null>(null);
 export const useEdit = () => useContext(EditCtx);
@@ -110,6 +119,83 @@ export const moveIn = <T,>(arr: T[], index: number, dir: -1 | 1): T[] => {
 };
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** 卡片行宽百分比，钳制在 24–100（1 位小数），非法值回落 def */
+export const clampWidthPct = (v: unknown, def = 50): number => {
+  const n = Math.round(Number(v) * 10) / 10;
+  return Number.isFinite(n) && n >= 24 && n <= 100 ? n : def;
+};
+
+// 拖宽时的轻量吸附点：常用整分栏（1/4、1/3、1/2、2/3、3/4、整行）
+const WIDTH_SNAPS = [25, 33.3, 50, 66.7, 75, 100];
+
+/**
+ * 像窗口一样横向拉卡片：拖右缘改行宽百分比。
+ * 拖动过程直改卡片的 --w CSS 变量（不触发整树重渲染），松手才提交状态。
+ */
+export function useWidthDrag(widthPct: number, onCommit: (w: number) => void) {
+  const cardRef = useRef<HTMLElement | null>(null);
+  const [wBadge, setWBadge] = useState<number | null>(null);
+
+  const startResize = (e: ReactPointerEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const card = cardRef.current;
+    const grid = card?.parentElement;
+    if (!card || !grid) return;
+    const gridW = grid.getBoundingClientRect().width;
+    if (gridW <= 0) return;
+    const handle = e.currentTarget as HTMLElement;
+    const startX = e.clientX;
+    const startPct = widthPct;
+    let latest = startPct;
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      let p = startPct + ((ev.clientX - startX) / gridW) * 100;
+      for (const snap of WIDTH_SNAPS) {
+        if (Math.abs(p - snap) < 1.6) p = snap;
+      }
+      latest = Math.min(100, Math.max(24, Math.round(p * 10) / 10));
+      card.style.setProperty('--w', String(latest));
+      setWBadge(latest);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      card.style.removeProperty('--w');
+      setWBadge(null);
+      onCommit(latest);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  };
+
+  return { cardRef, wBadge, startResize };
+}
+
+/** 卡片右缘的拖宽手柄（编辑态才渲染） */
+export function CardWidthHandle({
+  start,
+  reset,
+}: {
+  start: (e: ReactPointerEvent<HTMLElement>) => void;
+  reset: () => void;
+}) {
+  return (
+    <span
+      className="cardResizeHandle"
+      title="拖动调整卡片宽度 · 双击恢复默认"
+      onPointerDown={start}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        reset();
+      }}
+    />
+  );
+}
 
 // 富文本渲染：内容字段支持 <b>/<span style=...> 等，渲染前做轻量消毒（去 script/on*/javascript:）
 export function sanitizeHtml(html: string): string {
@@ -600,17 +686,19 @@ function FilePick({
   accept = 'image/*',
   busy = false,
   icon,
+  compact = false,
 }: {
   onFile: (f: File) => void;
   label: string;
   accept?: string;
   busy?: boolean;
   icon?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <label className={cx('fileButton', busy && 'busy')}>
+    <label className={cx('fileButton', busy && 'busy', compact && 'iconOnly')} title={compact ? label : undefined}>
       {busy ? <RefreshCw size={14} className="spin" /> : icon ?? <Upload size={14} />}
-      <span>{busy ? '处理中…' : label}</span>
+      {!compact && <span>{busy ? '处理中…' : label}</span>}
       <input
         type="file"
         accept={accept}
@@ -631,12 +719,18 @@ export function UploadButton({
   accept = 'image/*',
   api,
   icon,
+  folder,
+  compact = false,
 }: {
   onUploaded: (path: string) => void;
   label?: string;
   accept?: string;
   api?: EditApi;
   icon?: ReactNode;
+  /** 上传到 public/assets/ 下的分类目录 */
+  folder?: string;
+  /** 紧凑图标按钮（用于 chip 等窄场景） */
+  compact?: boolean;
 }) {
   const ctx = useEdit();
   const edit = api ?? ctx;
@@ -648,9 +742,10 @@ export function UploadButton({
       label={label}
       accept={accept}
       icon={icon}
+      compact={compact}
       onFile={async (f) => {
         setBusy(true);
-        const path = await edit.uploadFile(f);
+        const path = await edit.uploadFile(f, folder);
         setBusy(false);
         if (path) onUploaded(path);
       }}
@@ -765,11 +860,13 @@ function ImageListEditor({
   onChange,
   api,
   label,
+  folder,
 }: {
   items: string[];
   onChange: (v: string[]) => void;
   api: EditApi;
   label?: string;
+  folder?: string;
 }) {
   return (
     <div className="editorField">
@@ -809,11 +906,12 @@ function ImageListEditor({
         ))}
       </div>
       <div className="uploadRow">
-        <UploadButton api={api} label="上传图片" onUploaded={(p) => onChange([...items, p])} />
+        <UploadButton api={api} folder={folder} label="上传图片" onUploaded={(p) => onChange([...items, p])} />
         <button type="button" className="compactButton" onClick={() => onChange([...items, ''])}>
           <Plus size={14} /> 添加路径
         </button>
       </div>
+      {folder && <p className="fieldHint">上传归档到 /assets/{folder}/</p>}
     </div>
   );
 }
@@ -824,27 +922,18 @@ function ImageListEditor({
 type PanelProps = { content: SiteContent; api: EditApi };
 
 function AvatarPanel({ content, api }: PanelProps) {
-  const avatar = content.profile.avatar;
-  const patch = (v: string) => api.set((c) => ({ ...c, profile: { ...c.profile, avatar: v } }));
+  const avatars = (content.profile.avatars ?? (content.profile.avatar ? [content.profile.avatar] : [])).filter(Boolean);
+  const setAvatars = (v: string[]) => api.set((c) => ({ ...c, profile: { ...c.profile, avatars: v, avatar: v[0] ?? '' } }));
   return (
     <>
-      <div className="uploadRow">
-        {avatar ? (
-          <img className="uploadPreview large" src={assetUrl(avatar)} alt="" />
-        ) : (
-          <div className="uploadPreview large placeholder">
-            <User size={22} />
-          </div>
-        )}
-        <UploadButton api={api} label="上传照片" onUploaded={patch} />
-        {avatar && (
-          <button type="button" className="compactButton" onClick={() => patch('')}>
-            <X size={14} /> 清除
-          </button>
-        )}
-      </div>
-      <Field label="或手动填路径" value={avatar} onChange={patch} placeholder="/assets/文件名" />
-      <p className="fieldHint">建议 4:5 竖版照片，头像框按 4:5 显示。</p>
+      <ImageListEditor
+        label="个人照片（可多张：第一张为默认展示，多张时左栏箭头/滑动切换）"
+        items={avatars}
+        onChange={setAvatars}
+        api={api}
+        folder={ASSET_FOLDERS.avatar}
+      />
+      <p className="fieldHint">建议 4:5 竖版照片，头像框按 4:5 显示；访客点击照片可全屏查看。</p>
     </>
   );
 }
@@ -919,6 +1008,7 @@ function TimelineMediaPanel({ project, api }: { project: TimelineProject; api: E
         items={project.images}
         onChange={(images) => api.set((c) => ({ ...c, timelineProjects: updIn(c.timelineProjects, project.id, { images }) }))}
         api={api}
+        folder={ASSET_FOLDERS.experience}
       />
       <p className="fieldHint">图片顺序即展示顺序，可用 ↑↓ 调整。</p>
     </>
@@ -935,9 +1025,10 @@ function GalleryCoverPanel({ id, content, api }: PanelProps & { id: string }) {
         {project.cover ? <img className="coverPreview" src={assetUrl(project.cover)} alt="" /> : <p className="fieldHint">暂无封面</p>}
       </div>
       <div className="uploadRow">
-        <UploadButton api={api} label="上传封面" onUploaded={patch} />
+        <UploadButton api={api} folder={ASSET_FOLDERS.gallery} label="上传封面" onUploaded={patch} />
       </div>
       <Field label="封面路径" value={project.cover} onChange={patch} placeholder="/assets/文件名" />
+      <p className="fieldHint">上传归档到 /assets/{ASSET_FOLDERS.gallery}/</p>
     </>
   );
 }
@@ -959,14 +1050,14 @@ function ResearchMediaPanel({ id, content, api }: PanelProps & { id: string }) {
     } catch {
       // PDF 解析失败也继续上传原文件，封面可手动补
     }
-    const pdfPath = await api.uploadFile(file);
+    const pdfPath = await api.uploadFile(file, ASSET_FOLDERS.research);
     if (!pdfPath) {
       setBusyPdf(false);
       return;
     }
     let image = item.image ?? '';
     if (cover) {
-      const coverPath = await api.uploadFile(cover);
+      const coverPath = await api.uploadFile(cover, ASSET_FOLDERS.research);
       if (coverPath) image = coverPath;
     }
     patch({ pdf: pdfPath, image });
@@ -980,9 +1071,10 @@ function ResearchMediaPanel({ id, content, api }: PanelProps & { id: string }) {
         <ResearchMediaView item={item} />
       </div>
       <div className="uploadRow">
-        <UploadButton api={api} label="上传封面图" onUploaded={(p) => patch({ image: p })} />
+        <UploadButton api={api} folder={ASSET_FOLDERS.research} label="上传封面图" onUploaded={(p) => patch({ image: p })} />
         <FilePick label="上传 PDF · 封面取第一页" accept=".pdf,application/pdf" busy={busyPdf} icon={<FileUp size={14} />} onFile={onPdf} />
       </div>
+      <p className="fieldHint">上传归档到 /assets/{ASSET_FOLDERS.research}/</p>
       <Field label="封面图路径（也可手填；留空且无 PDF 则不显示图区）" value={item.image ?? ''} onChange={(v) => patch({ image: v })} />
       <div className="editorField">
         <span className="fieldLabel">PDF 附件（卡片上会出现 PDF 按钮）</span>
@@ -1420,7 +1512,7 @@ export function AdminEditor({
   const set = useCallback<EditApi['set']>((up) => setContent((c) => up(c)), [setContent]);
 
   const uploadFile = useCallback(
-    async (file: File) => {
+    async (file: File, folder?: string) => {
       const tk = token.trim();
       if (!tk) {
         toast('请先在发布面板填入 GitHub Token');
@@ -1428,7 +1520,7 @@ export function AdminEditor({
         return null;
       }
       toast(`正在上传 ${file.name} …`);
-      const res = await uploadImageToGitHub(file, tk);
+      const res = await uploadImageToGitHub(file, tk, folder);
       if (res.success && res.path) {
         toast(`已上传：${res.path}`);
         return res.path;

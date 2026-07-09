@@ -54,8 +54,10 @@ import {
 } from './data/siteContent';
 import { assetUrl, makeLocalizedText } from './utils/editorUtils';
 import {
+  ASSET_FOLDERS,
   AddGhost,
   AdminEditor,
+  CardWidthHandle,
   Chips,
   EditableText,
   ItemToolbar,
@@ -64,6 +66,8 @@ import {
   ResearchMediaView,
   S,
   SR,
+  UploadButton,
+  clampWidthPct,
   contentStorageKey,
   cx,
   moveIn,
@@ -71,6 +75,7 @@ import {
   updIn,
   useEdit,
   useLockBody,
+  useWidthDrag,
 } from './editing';
 import './styles.css';
 
@@ -158,11 +163,18 @@ function migrateContent(parsed: SiteContent): SiteContent {
       ? content.profile.ticker.map((t, i) => ({
           id: typeof t?.id === 'string' ? t.id : `ticker-${i}`,
           text: t?.text && typeof t.text === 'object' ? t.text : makeLocalizedText(''),
+          image: typeof t?.image === 'string' ? t.image : '',
+          imageHeight: typeof t?.imageHeight === 'number' ? t.imageHeight : 72,
         }))
       : [];
     if (!content.profile.tickerLabel || typeof content.profile.tickerLabel !== 'object') {
       content.profile.tickerLabel = { zh: '近期内容', en: 'Recent', ko: '최근 소식' };
     }
+    content.profile.avatars = Array.isArray(content.profile.avatars)
+      ? content.profile.avatars.filter((s) => typeof s === 'string' && s)
+      : content.profile.avatar
+        ? [content.profile.avatar]
+        : [];
   }
   return content;
 }
@@ -360,26 +372,7 @@ function Portfolio({
             </div>
           </div>
 
-          <div
-            className={cx('profilePhoto', edit && 'canEdit')}
-            onClick={edit ? () => edit.openDrawer({ type: 'avatar' }) : undefined}
-            role={edit ? 'button' : undefined}
-            title={edit ? '更换个人照片' : undefined}
-          >
-            {content.profile.avatar ? (
-              <img src={assetUrl(content.profile.avatar)} alt="个人照片" />
-            ) : (
-              <div className="profilePhotoFallback">
-                <User size={30} />
-                <span>个人照片</span>
-              </div>
-            )}
-            {edit && (
-              <span className="photoEditHint">
-                <ImagePlus size={14} /> 更换照片
-              </span>
-            )}
-          </div>
+          <ProfilePhotos content={content} onOpen={openLightbox} />
 
           <section className="contactList">
             {content.profile.links.map((link, i) => {
@@ -615,8 +608,158 @@ function Portfolio({
   );
 }
 
+// ===== 左栏个人照片轮播（多张：箭头/滑动切换，公开页点击看大图） =====
+function ProfilePhotos({ content, onOpen }: { content: SiteContent; onOpen: (images: string[], index: number) => void }) {
+  const edit = useEdit();
+  const avatars = (content.profile.avatars ?? (content.profile.avatar ? [content.profile.avatar] : [])).filter(Boolean);
+  const count = avatars.length;
+  const [idx, setIdx] = useState(0);
+  const cur = count ? Math.min(idx, count - 1) : 0;
+  const swipeStart = useRef<number | null>(null);
+  const suppressClick = useRef(false);
+
+  const go = (delta: number) => setIdx((cur + delta + count) % count);
+
+  return (
+    <div
+      className={cx('profilePhoto', edit && 'canEdit', count > 0 && 'hasPhoto')}
+      role="button"
+      title={edit ? '管理个人照片' : count ? '查看大图' : undefined}
+      onClick={() => {
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          return;
+        }
+        if (edit) edit.openDrawer({ type: 'avatar' });
+        else if (count) onOpen(avatars, cur);
+      }}
+      onPointerDown={(e) => {
+        if (count > 1) swipeStart.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        const start = swipeStart.current;
+        swipeStart.current = null;
+        if (start === null || count < 2) return;
+        const dx = e.clientX - start;
+        if (Math.abs(dx) > 36) {
+          suppressClick.current = true;
+          go(dx < 0 ? 1 : -1);
+        }
+      }}
+    >
+      {count > 0 ? (
+        <div className="photoViewport">
+          <div className="photoTrack" style={{ transform: `translateX(-${cur * 100}%)` }}>
+            {avatars.map((a, i) => (
+              <img key={`${a}-${i}`} src={assetUrl(a)} alt={`个人照片 ${i + 1}`} loading={i === 0 ? undefined : 'lazy'} draggable={false} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="profilePhotoFallback">
+          <User size={30} />
+          <span>个人照片</span>
+        </div>
+      )}
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            className="photoNav prev"
+            aria-label="上一张"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            className="photoNav next"
+            aria-label="下一张"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+          <span className="photoDots" aria-hidden="true">
+            {avatars.map((_, i) => (
+              <i key={i} className={i === cur ? 'on' : ''} />
+            ))}
+          </span>
+        </>
+      )}
+      {edit && (
+        <span className="photoEditHint">
+          <ImagePlus size={14} /> 管理照片
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ===== 近期内容滚动条（个人介绍板块内，右→左循环） =====
 const defaultTickerLabel: LocalizedText = { zh: '近期内容', en: 'Recent', ko: '최근 소식' };
+
+const clampTickerH = (v: unknown) => Math.min(200, Math.max(36, Math.round(Number(v)) || 72));
+
+// 条目配图缩略：下缘拖拽调高，角标 × 移除
+function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial<TickerItem>) => void }) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [hBadge, setHBadge] = useState<number | null>(null);
+  const height = clampTickerH(item.imageHeight);
+
+  const startDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const img = imgRef.current;
+    if (!img) return;
+    const handle = e.currentTarget as HTMLElement;
+    const startY = e.clientY;
+    const startH = img.getBoundingClientRect().height;
+    let latest = Math.round(startH);
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.min(200, Math.max(36, Math.round(startH + (ev.clientY - startY))));
+      img.style.height = `${latest}px`;
+      setHBadge(latest);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      img.style.height = '';
+      setHBadge(null);
+      onPatch({ imageHeight: latest });
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  };
+
+  return (
+    <span className="tickerThumb">
+      <img ref={imgRef} src={assetUrl(item.image ?? '')} alt="" style={{ height }} draggable={false} />
+      <span className="tickerThumbGrip" title="拖动调整图片大小" onPointerDown={startDrag} />
+      <button
+        type="button"
+        className="tickerThumbX"
+        title="移除配图"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPatch({ image: '' });
+        }}
+      >
+        <X size={10} />
+      </button>
+      {hBadge !== null && <span className="tickerThumbBadge">{hBadge}px</span>}
+    </span>
+  );
+}
 
 function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale }) {
   const edit = useEdit();
@@ -647,28 +790,38 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
       <div className="tickerWrap editing">
         {labelNode}
         <div className="tickerEditList">
-          {items.map((t) => (
-            <span className="tickerItem" key={`${edit.session}:${locale}:${t.id}`}>
-              <span className="tickerDot" />
-              <EditableText
-                value={t.text[locale]}
-                placeholder="内容"
-                onChange={(v) => setTicker(items.map((x) => (x.id === t.id ? { ...x, text: setLT(x.text, locale, v) } : x)))}
-                onEnter={(v) =>
-                  setTicker(addItem(items.map((x) => (x.id === t.id ? { ...x, text: setLT(x.text, locale, v) } : x))))
-                }
-              />
-              <button
-                type="button"
-                className="chipX"
-                title="删除"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setTicker(items.filter((x) => x.id !== t.id))}
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
+          {items.map((t) => {
+            const patchItem = (p: Partial<TickerItem>) => setTicker(items.map((x) => (x.id === t.id ? { ...x, ...p } : x)));
+            return (
+              <span className={cx('tickerItem', t.image && 'withImg')} key={`${edit.session}:${locale}:${t.id}`}>
+                {t.image ? <TickerThumb item={t} onPatch={patchItem} /> : <span className="tickerDot" />}
+                <EditableText
+                  value={t.text[locale]}
+                  placeholder="内容"
+                  onChange={(v) => patchItem({ text: setLT(t.text, locale, v) })}
+                  onEnter={(v) =>
+                    setTicker(addItem(items.map((x) => (x.id === t.id ? { ...x, text: setLT(x.text, locale, v) } : x))))
+                  }
+                />
+                <UploadButton
+                  compact
+                  folder={ASSET_FOLDERS.ticker}
+                  label={t.image ? '更换配图' : '上传配图'}
+                  icon={<ImagePlus size={12} />}
+                  onUploaded={(p) => patchItem({ image: p })}
+                />
+                <button
+                  type="button"
+                  className="chipX"
+                  title="删除条目"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setTicker(items.filter((x) => x.id !== t.id))}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            );
+          })}
           <button type="button" className="chipAdd" title="添加条目" onClick={() => setTicker(addItem(items))}>
             <Plus size={12} />
           </button>
@@ -677,7 +830,7 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
     );
   }
 
-  const visible = items.filter((t) => t.text[locale].trim());
+  const visible = items.filter((t) => t.text[locale].trim() || t.image);
   const loop = [...visible, ...visible];
   return (
     <div className="tickerWrap" style={{ '--tickerDur': `${Math.max(16, visible.length * 6)}s` } as CSSProperties}>
@@ -685,9 +838,13 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
       <div className="tickerViewport">
         <div className="tickerTrack">
           {loop.map((t, i) => (
-            <span className="tickerItem" key={`${t.id}-${i}`}>
-              <span className="tickerDot" />
-              <span>{t.text[locale]}</span>
+            <span className={cx('tickerItem', t.image && 'withImg')} key={`${t.id}-${i}`}>
+              {t.image ? (
+                <img src={assetUrl(t.image)} alt="" style={{ height: clampTickerH(t.imageHeight) }} loading="lazy" draggable={false} />
+              ) : (
+                <span className="tickerDot" />
+              )}
+              {t.text[locale].trim() && <span>{t.text[locale]}</span>}
             </span>
           ))}
         </div>
@@ -823,8 +980,10 @@ function TimelineProjectCard({
 }) {
   const edit = useEdit();
   const patch = (p: Partial<TimelineProject>) => edit?.set((c) => ({ ...c, timelineProjects: updIn(c.timelineProjects, project.id, p) }));
+  const widthPct = clampWidthPct(project.widthPct, 100);
+  const { cardRef, wBadge, startResize } = useWidthDrag(widthPct, (w) => patch({ widthPct: w }));
   return (
-    <article className="projectPanel">
+    <article ref={cardRef} className={cx('projectPanel', wBadge !== null && 'resizing')} style={{ '--w': widthPct } as CSSProperties}>
       {edit && (
         <ItemToolbar
           index={index}
@@ -877,6 +1036,8 @@ function TimelineProjectCard({
         </div>
         <LTList items={project.details} locale={locale} as="ul" className="projectDetails" addLabel="添加细节" onChange={edit ? (details) => patch({ details }) : undefined} />
       </div>
+      {edit && <CardWidthHandle start={startResize} reset={() => patch({ widthPct: 100 })} />}
+      {wBadge !== null && <span className="resizeBadge">{wBadge}%</span>}
     </article>
   );
 }
@@ -1023,8 +1184,15 @@ function GalleryCard({
 }) {
   const edit = useEdit();
   const patch = (p: Partial<GalleryProject>) => edit?.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, project.id, p) }));
+  const widthPct = clampWidthPct(project.widthPct, 33.3);
+  const { cardRef, wBadge, startResize } = useWidthDrag(widthPct, (w) => patch({ widthPct: w }));
   return (
-    <article className={cx('galleryCard', !edit && 'clickable')} onClick={!edit ? () => onOpenModal(project.id) : undefined}>
+    <article
+      ref={cardRef}
+      className={cx('galleryCard', !edit && 'clickable', wBadge !== null && 'resizing')}
+      style={{ '--w': widthPct } as CSSProperties}
+      onClick={!edit ? () => onOpenModal(project.id) : undefined}
+    >
       {edit && (
         <ItemToolbar
           index={index}
@@ -1066,6 +1234,8 @@ function GalleryCard({
           onChange={edit ? (notes) => patch({ notes }) : undefined}
         />
       </div>
+      {edit && <CardWidthHandle start={startResize} reset={() => patch({ widthPct: 33.3 })} />}
+      {wBadge !== null && <span className="resizeBadge">{wBadge}%</span>}
     </article>
   );
 }
@@ -1169,12 +1339,6 @@ function kindStyle(kind: string): CSSProperties {
   return { color: c, background: `color-mix(in srgb, ${c} 15%, transparent)` };
 }
 
-/** 卡片行宽百分比，钳制在 24–100，非法值回落 50 */
-const clampWidthPct = (v: unknown) => Math.min(100, Math.max(24, Math.round(Number(v) * 10) / 10 || 50));
-
-// 拖拽时的轻量吸附点：常用整分栏（1/4、1/3、1/2、2/3、3/4、整行）
-const WIDTH_SNAPS = [25, 33.3, 50, 66.7, 75, 100];
-
 function ResearchSection({
   content,
   locale,
@@ -1224,46 +1388,9 @@ function ResearchCard({
   const title = item.title[locale];
   const openMedia = edit ? () => edit.openDrawer({ type: 'research-media', id: item.id }) : undefined;
 
-  // 像窗口一样横向拉卡片：拖右缘改行宽百分比，拖动直改 CSS 变量，松手才提交状态
-  const widthPct = clampWidthPct(item.widthPct);
-  const cardRef = useRef<HTMLElement>(null);
-  const [wBadge, setWBadge] = useState<number | null>(null);
-
-  const startResize = (e: ReactPointerEvent<HTMLSpanElement>) => {
-    if (!edit) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const card = cardRef.current;
-    const grid = card?.parentElement;
-    if (!card || !grid) return;
-    const gridW = grid.getBoundingClientRect().width;
-    if (gridW <= 0) return;
-    const handle = e.currentTarget;
-    const startX = e.clientX;
-    const startPct = widthPct;
-    let latest = startPct;
-    handle.setPointerCapture(e.pointerId);
-    const onMove = (ev: PointerEvent) => {
-      let p = startPct + ((ev.clientX - startX) / gridW) * 100;
-      for (const snap of WIDTH_SNAPS) {
-        if (Math.abs(p - snap) < 1.6) p = snap;
-      }
-      latest = Math.min(100, Math.max(24, Math.round(p * 10) / 10));
-      card.style.setProperty('--w', String(latest));
-      setWBadge(latest);
-    };
-    const onUp = () => {
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
-      handle.removeEventListener('pointercancel', onUp);
-      card.style.removeProperty('--w');
-      setWBadge(null);
-      patch({ widthPct: latest });
-    };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
-    handle.addEventListener('pointercancel', onUp);
-  };
+  // 像窗口一样横向拉卡片：拖右缘改行宽百分比
+  const widthPct = clampWidthPct(item.widthPct, 50);
+  const { cardRef, wBadge, startResize } = useWidthDrag(widthPct, (w) => patch({ widthPct: w }));
 
   return (
     <article ref={cardRef} className={cx('researchCard', wBadge !== null && 'resizing')} style={{ '--w': widthPct } as CSSProperties}>
@@ -1330,18 +1457,7 @@ function ResearchCard({
           />
         )}
       </div>
-      {edit && (
-        <span
-          className="cardResizeHandle"
-          title="拖动调整卡片宽度 · 双击恢复 50%"
-          onPointerDown={startResize}
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            patch({ widthPct: 50 });
-          }}
-        />
-      )}
+      {edit && <CardWidthHandle start={startResize} reset={() => patch({ widthPct: 50 })} />}
       {wBadge !== null && <span className="resizeBadge">{wBadge}%</span>}
     </article>
   );

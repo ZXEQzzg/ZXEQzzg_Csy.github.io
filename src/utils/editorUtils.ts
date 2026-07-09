@@ -32,6 +32,11 @@ function genStrArr(arr: string[]): string {
 
 export function serializeSiteContent(data: SiteContent): string {
   const lines: string[] = [];
+  // 卡片行宽百分比：合法范围 24–100（保留 1 位小数），否则回落默认值
+  const wp = (v: unknown, def: number): number => {
+    const n = Math.round(Number(v) * 10) / 10;
+    return Number.isFinite(n) && n >= 24 && n <= 100 ? n : def;
+  };
 
   lines.push(`export type Locale = 'zh' | 'en' | 'ko';`);
   lines.push(``);
@@ -55,6 +60,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  role: LocalizedText;`);
   lines.push(`  outcome: LocalizedText;`);
   lines.push(`  details: LocalizedText[];`);
+  lines.push(`  widthPct?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type GalleryProject = {`);
@@ -67,6 +73,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  role: LocalizedText;`);
   lines.push(`  result: LocalizedText;`);
   lines.push(`  description: LocalizedText;`);
+  lines.push(`  widthPct?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type InfoModule = {`);
@@ -97,12 +104,15 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`export type TickerItem = {`);
   lines.push(`  id: string;`);
   lines.push(`  text: LocalizedText;`);
+  lines.push(`  image?: string;`);
+  lines.push(`  imageHeight?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type SiteContent = {`);
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
   lines.push(`    avatar: string;`);
+  lines.push(`    avatars?: string[];`);
   lines.push(`    mark?: string;`);
   lines.push(`    siteTitle?: string;`);
   lines.push(`    tickerLabel?: LocalizedText;`);
@@ -130,15 +140,18 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(``);
   lines.push(`export const defaultContent: SiteContent = {`);
 
+  const avatars = (data.profile.avatars ?? (data.profile.avatar ? [data.profile.avatar] : [])).filter(Boolean);
   lines.push(`  profile: {`);
   lines.push(`    name: ${q(data.profile.name)},`);
-  lines.push(`    avatar: ${q(data.profile.avatar ?? '')},`);
+  lines.push(`    avatar: ${q(avatars[0] ?? '')},`);
+  lines.push(`    avatars: ${genStrArr(avatars)},`);
   lines.push(`    mark: ${q(data.profile.mark ?? 'AI')},`);
   lines.push(`    siteTitle: ${q(data.profile.siteTitle ?? 'ZXEQzzg Csy Portfolio')},`);
   lines.push(`    tickerLabel: ${genLT(data.profile.tickerLabel ?? { zh: '近期内容', en: 'Recent', ko: '최근 소식' })},`);
   lines.push(`    ticker: [`);
   for (const t of data.profile.ticker ?? []) {
-    lines.push(`      { id: ${q(t.id)}, text: ${genLT(t.text)} },`);
+    const th = Math.min(200, Math.max(36, Math.round(Number(t.imageHeight)) || 72));
+    lines.push(`      { id: ${q(t.id)}, text: ${genLT(t.text)}, image: ${q(t.image ?? '')}, imageHeight: ${th} },`);
   }
   lines.push(`    ],`);
   lines.push(`    headline: ${genLT(data.profile.headline)},`);
@@ -181,6 +194,7 @@ export function serializeSiteContent(data: SiteContent): string {
       lines.push(`        ${genLT(d)},`);
     }
     lines.push(`      ],`);
+    lines.push(`      widthPct: ${wp(tp.widthPct, 100)},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
@@ -201,6 +215,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      role: ${genLT(gp.role)},`);
     lines.push(`      result: ${genLT(gp.result)},`);
     lines.push(`      description: ${genLT(gp.description)},`);
+    lines.push(`      widthPct: ${wp(gp.widthPct, 33.3)},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
@@ -231,7 +246,7 @@ export function serializeSiteContent(data: SiteContent): string {
   for (const r of data.recentResearch ?? []) {
     const mode = r.imageMode === 'cover' || r.imageMode === 'contain' ? r.imageMode : 'auto';
     const height = Math.round(Number(r.imageHeight)) || 190;
-    const widthPct = Math.min(100, Math.max(24, Math.round(Number(r.widthPct)) || 50));
+    const widthPct = wp(r.widthPct, 50);
     lines.push(`    {`);
     lines.push(`      id: ${q(r.id)},`);
     lines.push(`      kind: ${q(r.kind)},`);
@@ -260,11 +275,13 @@ export function serializeSiteContent(data: SiteContent): string {
 }
 
 // ===== 编辑页直传图片到仓库 public/assets/ =====
-// 选图 → base64 → GitHub contents API PUT 到 public/assets/<唯一文件名> →
-// 返回 /assets/<文件名>（走 assetUrl 拼 base）。文件名做安全化+唯一化，避免覆盖与特殊字符。
+// 选图 → base64 → GitHub contents API PUT 到 public/assets/[分类文件夹/]<唯一文件名> →
+// 返回 /assets/[文件夹/]<文件名>（走 assetUrl 拼 base）。文件名做安全化+唯一化。
+// folder 为分类目录（如 'Main Experiences' / 'PaPer'），可含空格；不存在时 GitHub 会自动创建。
 export async function uploadImageToGitHub(
   file: File,
-  token: string
+  token: string,
+  folder?: string
 ): Promise<{ success: boolean; message: string; path?: string }> {
   const owner = 'ZXEQzzg';
   const repo = 'ZXEQzzg_Csy.github.io';
@@ -280,7 +297,8 @@ export async function uploadImageToGitHub(
       .slice(0, 40) || 'image';
   const unique = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
   const filename = `${stem}-${unique}${ext}`;
-  const repoPath = `public/assets/${filename}`;
+  const dir = folder ? `${folder.replace(/^\/+|\/+$/g, '')}/` : '';
+  const repoPath = `public/assets/${dir}${filename}`;
 
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -291,7 +309,9 @@ export async function uploadImageToGitHub(
     }
     const base64 = btoa(binary);
 
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`, {
+    // 路径逐段 encode：分类文件夹名可能带空格（如 Main Experiences）
+    const apiPath = repoPath.split('/').map(encodeURIComponent).join('/');
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${apiPath}`, {
       method: 'PUT',
       headers: {
         Authorization: `token ${token}`,
@@ -299,14 +319,14 @@ export async function uploadImageToGitHub(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        message: `Upload image ${filename} from web editor`,
+        message: `Upload image ${dir}${filename} from web editor`,
         content: base64,
         branch,
       }),
     });
 
     if (res.ok) {
-      return { success: true, message: '图片上传成功', path: `/assets/${filename}` };
+      return { success: true, message: '图片上传成功', path: `/assets/${dir}${filename}` };
     }
     const err = await res.json();
     return { success: false, message: `图片上传失败: ${err.message}` };
