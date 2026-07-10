@@ -20,9 +20,7 @@ export type TimelineProject = {
   role: LocalizedText;
   outcome: LocalizedText;
   details: LocalizedText[];
-  /** 卡片占行宽百分比（24–100，默认 100），编辑页拖卡片右缘调整 */
   widthPct?: number;
-  /** 图片条高度 px（120–560，默认 220），编辑页拖图片区下缘调整；与卡片宽度互不影响 */
   imageHeight?: number;
 };
 
@@ -36,9 +34,7 @@ export type GalleryProject = {
   role: LocalizedText;
   result: LocalizedText;
   description: LocalizedText;
-  /** 卡片占行宽百分比（24–100，默认 33.3 即三列），编辑页拖卡片右缘调整 */
   widthPct?: number;
-  /** 封面高度 px（120–520，默认 200），编辑页拖封面下缘调整；封面完整显示、模糊铺底留边 */
   coverHeight?: number;
 };
 
@@ -56,13 +52,9 @@ export type ResearchItem = {
   link: string;
   note: LocalizedText;
   image?: string;
-  /** 附件 PDF（/assets/xxx.pdf）；上传 PDF 时会自动截第一页生成封面图 */
   pdf?: string;
-  /** 配图展示：auto=按图片真实比例自适应；cover=固定高度裁剪；contain=固定高度完整留边 */
   imageMode?: 'auto' | 'cover' | 'contain';
-  /** cover/contain 模式下的框高（px），编辑页可调 */
   imageHeight?: number;
-  /** 卡片占行宽的百分比（24–100，默认 50）；编辑页拖卡片右缘调整，像窗口一样横向拉 */
   widthPct?: number;
 };
 
@@ -71,13 +63,10 @@ export type ResumeBlock = {
   pdf: string;
 };
 
-/** 「近期内容」横向滚动条里的一个条目 */
 export type TickerItem = {
   id: string;
   text: LocalizedText;
-  /** 可选配图（上传到 /assets/Recent/），随条目一起滚动 */
   image?: string;
-  /** 配图显示高度 px（36–200，默认 72），编辑页拖图片下缘调整 */
   imageHeight?: number;
 };
 
@@ -85,15 +74,10 @@ export type SiteContent = {
   profile: {
     name: string;
     avatar: string;
-    /** 个人照片（可多张，左栏轮播左右切换）；avatar 保留为第一张的兼容字段 */
     avatars?: string[];
-    /** 左上角小徽标文字（默认 AI） */
     mark?: string;
-    /** 顶栏站点标题 */
     siteTitle?: string;
-    /** 个人介绍板块里「近期内容」滚动条的标签文字 */
     tickerLabel?: LocalizedText;
-    /** 「近期内容」滚动条目（公开页从右往左循环滚动） */
     ticker?: TickerItem[];
     headline: LocalizedText;
     intro: LocalizedText;
@@ -111,7 +95,6 @@ export type SiteContent = {
   courses: InfoModule[];
   major: InfoModule[];
   recentResearch: ResearchItem[];
-  /** 各板块标题覆写（key = intro/skills/experience/gallery/major/courses/research），缺省用内置三语标题 */
   sectionTitles?: Record<string, LocalizedText>;
 };
 
@@ -121,6 +104,12 @@ export const defaultContent: SiteContent = {
   profile: {
     name: '<span style="font-size:0.85em">陈斯阳 | BURCE</span>',
     avatar: '',
+    avatars: [],
+    mark: 'HAI',
+    siteTitle: 'ZXEQzzg Csy HPortfolio',
+    tickerLabel: { zh: '近期内容', en: 'Recent', ko: '최근 소식' },
+    ticker: [
+    ],
     headline: { zh: 'AI/LLM 专业背景 | AI Agent 产品方向 | AI 语音交互（TTS/ASR/VAD/声学仿真）', en: 'AI background, product design sense, research-driven project practice', ko: 'AI 전공 기반, 제품 디자인 감각, 연구 중심 프로젝트 경험' },
     intro: { zh: '研究端与工作端我专注于LLM相关实践与AI智能工程领域，具备从项目研究到工程落地的能力。围绕实际范式的应用与交互进行技术基础研究。', en: 'I focus on how AI systems move into real product contexts, balancing model capability, user experience, and explainable design.', ko: 'AI 시스템이 실제 제품 환경에 들어가는 방식에 관심이 있으며 모델 성능, 사용자 경험, 설명 가능한 설계의 균형을 중시합니다.' },
     research: { zh: '研究方向：Agent 应用 | Agent Memory | 语音（TTS/ASR/VAD/声学SIM）| Agent HCI | LLM 全双工语音交互', en: 'Research interests: multimodal interaction, agentic applications, AI-assisted design, and data-driven product analysis.', ko: '연구 관심사: 멀티모달 인터랙션, 에이전트 애플리케이션, AI 보조 디자인, 데이터 기반 제품 분석.' },
@@ -138,7 +127,7 @@ export const defaultContent: SiteContent = {
     title: { zh: '技术栈', en: 'Technical Stack', ko: '기술 스택' },
     groups: [
       { name: { zh: 'AI+  领域', en: 'AI / Data', ko: 'AI / 데이터' }, items: ['LLM', 'Agentic RAG', 'NLP', 'ASR', 'TTS ', 'VAD', 'Agent Tool', 'Function Calling', 'MCP', 'Skill', 'Prompt Eng', 'Context Eng', 'Agent Memory', 'KWS'] },
-      { name: { zh: '开发 | 工程 | Vibe Codding', en: 'Product / Design', ko: '제품 / 디자인' }, items: ['Python', 'Linux', 'Docker', 'Git', 'LangChain', 'Workflow', 'RAG 评估/测评', 'Vibe IDE/CLI 开发 - Claude Code | Codex | KIRO | Gemini&Antigravity | Trae | Copilot | Windsurf | CodeBuddy', 'GitHub Pages'] },
+      { name: { zh: '开发 | 工程 | Vibe Codding', en: 'Product / Design', ko: '제품 / 디자인' }, items: ['Python', 'Linux', 'DoAcker', 'Git', 'LangChain', 'Workflow', 'RAG 评估/测评', 'Vibe IDE/CLI 开发 - Claude Code | Codex | KIRO | Gemini&Antigravity | Trae | Copilot | Windsurf | CodeBuddy', 'GitHub Pages'] },
       { name: { zh: '产品', en: 'Engineering', ko: '엔지니어링' }, items: ['AI  模型评估与选型', '需求分析 & PRD 撰写', 'Agent 产品设计', '产品交互', '⽤⼾场景分析', '结构 / ⾮结构化数据处理', 'Canva', 'Axure', '墨⼑', 'Figma'] },
     ],
   },
@@ -147,7 +136,7 @@ export const defaultContent: SiteContent = {
       id: 'design-research-dashboard',
       title: { zh: 'MatchMate AI - 看球搭子（上海交通大学人工智能学院）', en: 'Design Research Insight Dashboard', ko: '디자인 리서치 인사이트 대시보드' },
       period: '2026',
-      summary: { zh: 'MatchMate 是一款面向足球赛事的实时AI陪伴应用，通过文字/语音交互，基于SportMonks实时数据与直播8事件流，为用户提供赛前、赛中、赛后的个性化解说、战术分析与互动。我作为AI语音交互模块产品负责人，主导语音交互与赛场智能播报两大「无手交互」能力的从0到1设计，覆盖用户主动提问与系统主动播报全场景。', en: 'Organized interviews, competitive research, and course feedback into traceable product decisions.', ko: '인터뷰, 경쟁 분석, 수업 피드백을 추적 가능한 제품 판단으로 정리했습니다.' },
+      summary: { zh: 'MatchMate 是一款面向足球赛事的实A时AI陪伴应用，通过文字/语音交互，基于SportMonks实时数据与直播8事件流，为用户提供赛前、赛中、赛后的个性化解说、战术分析与互动。我作为AI语音交互模块产品负责人，主导语音交互与赛场智能播报两大「无手交互」能力的从0到1设计，覆盖用户主动提问与系统主动播报全场景。', en: 'Organized interviews, competitive research, and course feedback into traceable product decisions.', ko: '인터뷰, 경쟁 분석, 수업 피드백을 추적 가능한 제품 판단으로 정리했습니다.' },
       images: ['public/assets/logo.png'],
       stack: ['足球/体育 Agent', 'Memory Data', 'TTS', 'ASR', '语音交互设计', 'C端产品', '语音唤醒', '语音产品设计'],
       role: { zh: '语音交互产品方案设计 / ASR & TTS技术选型与标准制定 / 智能播报规则引擎设计 / 语音架构设计 / 交互设计 / 需求分析', en: 'Led research framing, information hierarchy, visualization components, and insight writing.', ko: '리서치 프레임, 정보 계층, 시각화 컴포넌트, 인사이트 작성을 맡았습니다.' },
@@ -155,6 +144,8 @@ export const defaultContent: SiteContent = {
       details: [
         { zh: '针对"边看直播边互动"的碎片化场景，设计 Push-to-Talk 语音唤醒-语音输入-语音合成-智能播报 状态互斥交互体系。', en: 'Replaced loose research notes with tags, evidence chains, and priority levels.', ko: '분산된 리서치 노트를 태그, 근거 체인, 우선순위로 구조화했습니다.' },
       ],
+      widthPct: 100,
+      imageHeight: 220,
     },
     {
       id: 'agentic-study-planner',
@@ -170,6 +161,24 @@ export const defaultContent: SiteContent = {
         { zh: '通过房间脉冲响应（RIR）模拟与加权预测误差（WPE）去混响实验，验证在不同声源距离和角度条件下的语音增强效果', en: 'Positioned AI as assistance rather than replacement, preserving user control over learning rhythm.', ko: 'AI를 대체자가 아닌 보조자로 두어 사용자가 학습 리듬을 통제하도록 했습니다.' },
         { zh: '构建  SFT seed data  系统数据处理脚本，⾃动化处理覆盖  10k  原始语料与制作  100  条四态分布数据 策略，为机器⼈全双⼯对话系统奠定评估基准。', en: '', ko: '' },
       ],
+      widthPct: 100,
+      imageHeight: 180,
+    },
+    {
+      id: 'timeline-project-1783547312494',
+      title: { zh: '项目 3', en: '项目 3', ko: '项目 3' },
+      period: '2026',
+      summary: { zh: '项目简介', en: '项目简介', ko: '项目简介' },
+      images: [],
+      stack: [],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      outcome: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      details: [
+        { zh: '细节描述', en: '细节描述', ko: '细节描述' },
+        { zh: 'D', en: '', ko: '' },
+      ],
+      widthPct: 100,
+      imageHeight: 220,
     },
   ],
   galleryProjects: [
@@ -187,6 +196,8 @@ export const defaultContent: SiteContent = {
       role: { zh: '负责用户场景定义、体验流程、PPT 叙事结构与原型展示。', en: 'Defined user scenarios, experience flow, presentation narrative, and prototype demo.', ko: '사용자 시나리오, 경험 흐름, 발표 구조, 프로토타입 시연을 담당했습니다.' },
       result: { zh: '完成从问题定义到概念验证的完整展示材料。', en: 'Delivered complete materials from problem definition to concept validation.', ko: '문제 정의부터 개념 검증까지의 전체 발표 자료를 완성했습니다.' },
       description: { zh: '以新生和访客为对象，探索语音、图像和位置上下文结合的校园信息服务。', en: 'Explored a campus information service combining voice, image, and location context for new students and visitors.', ko: '신입생과 방문자를 대상으로 음성, 이미지, 위치 맥락을 결합한 캠퍼스 정보 서비스를 탐색했습니다.' },
+      widthPct: 33.3,
+      coverHeight: 187,
     },
     {
       id: 'ai-product-ethics-review',
@@ -202,6 +213,8 @@ export const defaultContent: SiteContent = {
       role: { zh: '负责文献整理、评价维度设计、案例分析与视觉表达。', en: 'Handled literature review, evaluation dimensions, case analysis, and visual storytelling.', ko: '문헌 조사, 평가 기준 설계, 사례 분석, 시각적 표현을 맡았습니다.' },
       result: { zh: '沉淀出可复用的 AI 产品风险检查清单。', en: 'Produced a reusable risk checklist for AI product evaluation.', ko: 'AI 제품 평가에 재사용 가능한 위험 점검표를 만들었습니다.' },
       description: { zh: '围绕透明度、偏见、用户控制权和数据边界，构建面向产品团队的评估方法。', en: 'Built a product-team-oriented evaluation method around transparency, bias, user control, and data boundaries.', ko: '투명성, 편향, 사용자 통제권, 데이터 경계를 중심으로 제품팀용 평가 방법을 구성했습니다.' },
+      widthPct: 33.3,
+      coverHeight: 190,
     },
     {
       id: 'academic-project-1783271387635',
@@ -217,11 +230,13 @@ export const defaultContent: SiteContent = {
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
       result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
       description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 190,
     },
     {
       id: 'academic-project-1783284790924',
       title: { zh: '学术项目 4', en: 'Academic Project 4', ko: '학술 프로젝트 4' },
-      cover: '/assets/ppt-cover-01.svg',
+      cover: '/assets/PPT/cloud-computing-smart-agricultural-manag-3m6pi2mrf69cx3.png',
       category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
         { zh: '简介', en: '简介', ko: '简介' },
@@ -232,10 +247,63 @@ export const defaultContent: SiteContent = {
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
       result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
       description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
     },
     {
       id: 'academic-project-1783284793108',
       title: { zh: '学术项目 5', en: 'Academic Project 5', ko: '학술 프로젝트 5' },
+      cover: '/assets/PPT/agro-ict-aws-1-vdo8jhmrf6a1jr.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783581826807',
+      title: { zh: '学术项目 7', en: 'Academic Project 7', ko: '학술 프로젝트 7' },
+      cover: '/assets/PPT/iot-dkre7bmrf6b5b2.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783581827432',
+      title: { zh: '学术项目 8', en: 'Academic Project 8', ko: '학술 프로젝트 8' },
+      cover: '/assets/PPT/living-lab-202292004-w1xfpamrf6bbch.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783702352266',
+      title: { zh: '学术项目 12', en: 'Academic Project 12', ko: '학술 프로젝트 12' },
       cover: '/assets/ppt-cover-01.svg',
       category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
@@ -247,6 +315,127 @@ export const defaultContent: SiteContent = {
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
       result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
       description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783703717535',
+      title: { zh: '学术项目 11', en: 'Academic Project 11', ko: '학술 프로젝트 11' },
+      cover: '/assets/ppt-cover-01.svg',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783703717930',
+      title: { zh: '学术项目 12', en: 'Academic Project 12', ko: '학술 프로젝트 12' },
+      cover: '/assets/PPT/rl-ai-snake-9asnhwmrf76lih.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783702351369',
+      title: { zh: '学术项目 10', en: 'Academic Project 10', ko: '학술 프로젝트 10' },
+      cover: '/assets/PPT/q-learning-9sudiamrf6bxv2.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783581827816',
+      title: { zh: '学术项目 9', en: 'Academic Project 9', ko: '학술 프로젝트 9' },
+      cover: '/assets/PPT/model-based-reinforcement-learning-dyna--xmsl41mrf6bnnd.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783703719337',
+      title: { zh: '学术项目 13', en: 'Academic Project 13', ko: '학술 프로젝트 13' },
+      cover: '/assets/PPT/a-bmcinjmrf772xl.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783703719729',
+      title: { zh: '学术项目 14', en: 'Academic Project 14', ko: '학술 프로젝트 14' },
+      cover: '/assets/PPT/b-seiu3vmrf779gh.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
+    },
+    {
+      id: 'academic-project-1783703720066',
+      title: { zh: '学术项目 15', en: 'Academic Project 15', ko: '학술 프로젝트 15' },
+      cover: '/assets/PPT/c-id77pamrf77fig.png',
+      category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
+      notes: [
+        { zh: '简介', en: '简介', ko: '简介' },
+        { zh: '说明', en: '说明', ko: '说明' },
+        { zh: '成果', en: '成果', ko: '成果' },
+      ],
+      stack: ['AI', 'Research'],
+      role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
+      result: { zh: '项目成果', en: '项目成果', ko: '项目成果' },
+      description: { zh: '项目描述', en: '项目描述', ko: '项目描述' },
+      widthPct: 33.3,
+      coverHeight: 200,
     },
   ],
   courses: [
@@ -279,6 +468,10 @@ export const defaultContent: SiteContent = {
       link: 'https://arxiv.org/abs/2502.14145',
       note: { zh: 'LLM - 全双工语音交互设计（Ten）', en: '', ko: '' },
       image: '/assets/pa-01-0ksj9qmrb3y8kd.png',
+      pdf: '',
+      imageMode: 'contain',
+      imageHeight: 320,
+      widthPct: 24,
     },
     {
       id: 'research-1783456194447',
@@ -287,6 +480,10 @@ export const defaultContent: SiteContent = {
       link: '',
       note: { zh: '', en: '', ko: '' },
       image: '',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 25,
     },
     {
       id: 'research-1783456196695',
@@ -295,6 +492,50 @@ export const defaultContent: SiteContent = {
       link: '',
       note: { zh: '', en: '', ko: '' },
       image: '',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 24,
+    },
+    {
+      id: 'research-1783581833184',
+      kind: '论文',
+      title: { zh: '新条目', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '', en: '', ko: '' },
+      image: '',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 50,
+    },
+    {
+      id: 'research-1783581836855',
+      kind: '论文',
+      title: { zh: '新条目', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '', en: '', ko: '' },
+      image: '',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 50,
+    },
+    {
+      id: 'research-1783581837256',
+      kind: '论文',
+      title: { zh: '新条目', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '', en: '', ko: '' },
+      image: '',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 50,
     },
   ],
+  sectionTitles: {
+    "experience": { zh: '主要经历', en: 'Experience', ko: '주요 경력' },
+    "gallery": { zh: '学术驱动项目', en: 'Academic Gallery', ko: '학술 갤러리' },
+  },
 };
