@@ -22,6 +22,7 @@ export type TimelineProject = {
   details: LocalizedText[];
   widthPct?: number;
   imageHeight?: number;
+  stackColors?: string[];
 };
 
 export type GalleryProject = {
@@ -36,6 +37,7 @@ export type GalleryProject = {
   description: LocalizedText;
   widthPct?: number;
   coverHeight?: number;
+  hidden?: boolean;
 };
 
 export type InfoModule = {
@@ -43,6 +45,10 @@ export type InfoModule = {
   title: LocalizedText;
   body: LocalizedText;
   tags: string[];
+  images?: string[];
+  imageHeight?: number;
+  imagePos?: string[];
+  widthPct?: number;
 };
 
 export type ResearchItem = {
@@ -85,10 +91,11 @@ export type SiteContent = {
     location: LocalizedText;
     links: ProfileLink[];
     resume: ResumeBlock;
+    heroHeight?: number;
   };
   skills: {
     title: LocalizedText;
-    groups: Array<{ name: LocalizedText; items: string[] }>;
+    groups: Array<{ name: LocalizedText; items: string[]; theme?: string; itemColors?: string[] }>;
   };
   timelineProjects: TimelineProject[];
   galleryProjects: GalleryProject[];
@@ -96,6 +103,7 @@ export type SiteContent = {
   major: InfoModule[];
   recentResearch: ResearchItem[];
   sectionTitles?: Record<string, LocalizedText>;
+  uiStrings?: Record<string, LocalizedText>;
 };
 
 export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };

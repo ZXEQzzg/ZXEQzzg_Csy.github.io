@@ -1,5 +1,19 @@
 import type { LocalizedText, SiteContent } from '../data/siteContent';
 
+// 配色主题键（chip/卡片背景，含渐变）。编辑器 CHIP_THEMES 与 styles.css 的
+// .tone-* 类名都以此为准，序列化时非法值回落为 ''（默认无配色）。
+export const TONE_KEYS = ['teal', 'gold', 'violet', 'rose', 'sky', 'mint', 'sunset', 'ocean', 'candy', 'aurora'] as const;
+
+export const validTone = (v: unknown): string => (typeof v === 'string' && (TONE_KEYS as readonly string[]).includes(v) ? v : '');
+
+/** 图片位移 "x y"（object-position 百分比）规范化，非法回落居中 */
+export const normPos = (v: unknown): string => {
+  if (typeof v !== 'string') return '50 50';
+  const parts = v.trim().split(/[\s,]+/).map(Number);
+  const c = (n: number) => (Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n * 10) / 10)) : 50);
+  return `${c(parts[0])} ${c(parts[1])}`;
+};
+
 export function makeLocalizedText(value = ''): LocalizedText {
   return { zh: value, en: value, ko: value };
 }
@@ -67,6 +81,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  details: LocalizedText[];`);
   lines.push(`  widthPct?: number;`);
   lines.push(`  imageHeight?: number;`);
+  lines.push(`  stackColors?: string[];`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type GalleryProject = {`);
@@ -81,6 +96,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  description: LocalizedText;`);
   lines.push(`  widthPct?: number;`);
   lines.push(`  coverHeight?: number;`);
+  lines.push(`  hidden?: boolean;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type InfoModule = {`);
@@ -88,6 +104,10 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  title: LocalizedText;`);
   lines.push(`  body: LocalizedText;`);
   lines.push(`  tags: string[];`);
+  lines.push(`  images?: string[];`);
+  lines.push(`  imageHeight?: number;`);
+  lines.push(`  imagePos?: string[];`);
+  lines.push(`  widthPct?: number;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export type ResearchItem = {`);
@@ -130,10 +150,11 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`    location: LocalizedText;`);
   lines.push(`    links: ProfileLink[];`);
   lines.push(`    resume: ResumeBlock;`);
+  lines.push(`    heroHeight?: number;`);
   lines.push(`  };`);
   lines.push(`  skills: {`);
   lines.push(`    title: LocalizedText;`);
-  lines.push(`    groups: Array<{ name: LocalizedText; items: string[] }>;`);
+  lines.push(`    groups: Array<{ name: LocalizedText; items: string[]; theme?: string; itemColors?: string[] }>;`);
   lines.push(`  };`);
   lines.push(`  timelineProjects: TimelineProject[];`);
   lines.push(`  galleryProjects: GalleryProject[];`);
@@ -141,6 +162,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  major: InfoModule[];`);
   lines.push(`  recentResearch: ResearchItem[];`);
   lines.push(`  sectionTitles?: Record<string, LocalizedText>;`);
+  lines.push(`  uiStrings?: Record<string, LocalizedText>;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };`);
@@ -157,7 +179,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`    tickerLabel: ${genLT(data.profile.tickerLabel ?? { zh: '近期内容', en: 'Recent', ko: '최근 소식' })},`);
   lines.push(`    ticker: [`);
   for (const t of data.profile.ticker ?? []) {
-    const th = Math.min(200, Math.max(36, Math.round(Number(t.imageHeight)) || 72));
+    const th = Math.min(360, Math.max(36, Math.round(Number(t.imageHeight)) || 72));
     lines.push(`      { id: ${q(t.id)}, text: ${genLT(t.text)}, image: ${q(t.image ?? '')}, imageHeight: ${th} },`);
   }
   lines.push(`    ],`);
@@ -174,13 +196,22 @@ export function serializeSiteContent(data: SiteContent): string {
     const resume = data.profile.resume ?? { images: [], pdf: '' };
     lines.push(`    resume: { images: ${genStrArr(resume.images ?? [])}, pdf: ${q(resume.pdf ?? '')} },`);
   }
+  {
+    // 个人介绍框最小高度 px：0 = 自适应，其余钳制 200–900
+    const n = Math.round(Number(data.profile.heroHeight));
+    lines.push(`    heroHeight: ${Number.isFinite(n) && n >= 200 && n <= 900 ? n : 0},`);
+  }
   lines.push(`  },`);
 
   lines.push(`  skills: {`);
   lines.push(`    title: ${genLT(data.skills.title)},`);
   lines.push(`    groups: [`);
   for (const group of data.skills.groups) {
-    lines.push(`      { name: ${genLT(group.name)}, items: ${genStrArr(group.items)} },`);
+    // itemColors 与 items 一一对齐（增删后长度可能不一致，序列化时补齐/截断）
+    const colors = group.items.map((_, i) => validTone(group.itemColors?.[i]));
+    lines.push(
+      `      { name: ${genLT(group.name)}, items: ${genStrArr(group.items)}, theme: ${q(validTone(group.theme))}, itemColors: ${genStrArr(colors)} },`
+    );
   }
   lines.push(`    ],`);
   lines.push(`  },`);
@@ -203,6 +234,7 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      ],`);
     lines.push(`      widthPct: ${wp(tp.widthPct, 100)},`);
     lines.push(`      imageHeight: ${hp(tp.imageHeight, 220, 120, 560)},`);
+    lines.push(`      stackColors: ${genStrArr(tp.stack.map((_, i) => validTone(tp.stackColors?.[i])))},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
@@ -225,31 +257,32 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`      description: ${genLT(gp.description)},`);
     lines.push(`      widthPct: ${wp(gp.widthPct, 33.3)},`);
     lines.push(`      coverHeight: ${hp(gp.coverHeight, 200, 120, 520)},`);
+    lines.push(`      hidden: ${gp.hidden === true},`);
     lines.push(`    },`);
   }
   lines.push(`  ],`);
 
-  lines.push(`  courses: [`);
-  for (const c of data.courses) {
-    lines.push(`    {`);
-    lines.push(`      id: ${q(c.id)},`);
-    lines.push(`      title: ${genLT(c.title)},`);
-    lines.push(`      body: ${genLT(c.body)},`);
-    lines.push(`      tags: ${genStrArr(c.tags)},`);
-    lines.push(`    },`);
+  // 课程 / 专业模块共用 InfoModule：图片相关字段两边都发出（课程暂无编辑入口，为空数组）
+  for (const [key, list] of [
+    ['courses', data.courses],
+    ['major', data.major],
+  ] as const) {
+    lines.push(`  ${key}: [`);
+    for (const m of list) {
+      const imgs = m.images ?? [];
+      lines.push(`    {`);
+      lines.push(`      id: ${q(m.id)},`);
+      lines.push(`      title: ${genLT(m.title)},`);
+      lines.push(`      body: ${genLT(m.body)},`);
+      lines.push(`      tags: ${genStrArr(m.tags)},`);
+      lines.push(`      images: ${genStrArr(imgs)},`);
+      lines.push(`      imageHeight: ${hp(m.imageHeight, 200, 120, 520)},`);
+      lines.push(`      imagePos: ${genStrArr(imgs.map((_, i) => normPos(m.imagePos?.[i])))},`);
+      lines.push(`      widthPct: ${wp(m.widthPct, 33.3)},`);
+      lines.push(`    },`);
+    }
+    lines.push(`  ],`);
   }
-  lines.push(`  ],`);
-
-  lines.push(`  major: [`);
-  for (const m of data.major) {
-    lines.push(`    {`);
-    lines.push(`      id: ${q(m.id)},`);
-    lines.push(`      title: ${genLT(m.title)},`);
-    lines.push(`      body: ${genLT(m.body)},`);
-    lines.push(`      tags: ${genStrArr(m.tags)},`);
-    lines.push(`    },`);
-  }
-  lines.push(`  ],`);
 
   lines.push(`  recentResearch: [`);
   for (const r of data.recentResearch ?? []) {
@@ -273,6 +306,13 @@ export function serializeSiteContent(data: SiteContent): string {
 
   lines.push(`  sectionTitles: {`);
   for (const [key, lt] of Object.entries(data.sectionTitles ?? {})) {
+    if (!lt) continue;
+    lines.push(`    ${JSON.stringify(key)}: ${genLT(lt)},`);
+  }
+  lines.push(`  },`);
+
+  lines.push(`  uiStrings: {`);
+  for (const [key, lt] of Object.entries(data.uiStrings ?? {})) {
     if (!lt) continue;
     lines.push(`    ${JSON.stringify(key)}: ${genLT(lt)},`);
   }

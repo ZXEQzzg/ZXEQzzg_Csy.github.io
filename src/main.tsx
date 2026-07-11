@@ -13,11 +13,13 @@ import {
   Activity,
   BookOpen,
   BriefcaseBusiness,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
   Eye,
+  EyeOff,
   FileText,
   FlaskConical,
   Github,
@@ -65,15 +67,19 @@ import {
   LT,
   LTList,
   ResearchMediaView,
+  RichText,
   S,
   SR,
+  ThemeDots,
   UploadButton,
   clampWidthPct,
   contentStorageKey,
   cx,
   dragVertical,
   moveIn,
+  plainText,
   setLT,
+  toneClass,
   updIn,
   useEdit,
   useLockBody,
@@ -126,6 +132,131 @@ function SectionTitleLT({
   );
 }
 
+// 页面上零散 UI 文案（按钮/标签/角标/页脚等）：编辑器可改、可调色字号，
+// 存 content.uiStrings，缺省回落内置三语文案
+const UI_FALLBACKS: Record<string, LocalizedText> = {
+  resumeLabel: { zh: '目前简历 · CV', en: 'Resume · CV', ko: '이력서 · CV' },
+  resumeView: { zh: '查看简历', en: 'View resume', ko: '이력서 보기' },
+  resumeDownload: { zh: '下载 PDF 简历', en: 'Download PDF', ko: 'PDF 다운로드' },
+  galleryMore: { zh: '查看详情', en: 'Details', ko: '자세히 보기' },
+  pillStack: { zh: 'Stack', en: 'Stack', ko: 'Stack' },
+  pillRole: { zh: '职责', en: 'Role', ko: '역할' },
+  pillOutcome: { zh: '成果', en: 'Outcome', ko: '결과' },
+  footGithub: { zh: 'GitHub', en: 'GitHub', ko: 'GitHub' },
+  footNote: { zh: 'Vite + React · GitHub Pages', en: 'Vite + React · GitHub Pages', ko: 'Vite + React · GitHub Pages' },
+};
+
+const uiLT = (content: SiteContent, k: string): LocalizedText =>
+  (content.uiStrings?.[k] as LocalizedText | undefined) ?? UI_FALLBACKS[k] ?? makeLocalizedText(k);
+
+function UIText({
+  content,
+  locale,
+  k,
+  as = 'span',
+  className,
+}: {
+  content: SiteContent;
+  locale: Locale;
+  k: string;
+  as?: 'span' | 'p';
+  className?: string;
+}) {
+  const edit = useEdit();
+  return (
+    // display:contents 让包装 span 不产生盒子；编辑态拦住点击（stopPropagation 挡外层
+    // 按钮回调，preventDefault 挡 <a> 的默认跳转——外层的守卫因冒泡被截而收不到事件）
+    <span
+      style={{ display: 'contents' }}
+      onClick={
+        edit
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          : undefined
+      }
+    >
+      <LT
+        value={uiLT(content, k)}
+        locale={locale}
+        as={as}
+        className={className}
+        placeholder="文本"
+        onChange={(v) => edit?.set((c) => ({ ...c, uiStrings: { ...(c.uiStrings ?? {}), [k]: setLT(uiLT(c, k), locale, v) } }))}
+      />
+    </span>
+  );
+}
+
+// 板块外壳：编号按钮可折叠/展开（折叠状态记在本浏览器 localStorage）
+function CollapsibleSection({
+  id,
+  index,
+  icon,
+  titleNode,
+  children,
+}: {
+  id: SectionKey;
+  index: number;
+  icon: ReactNode;
+  titleNode: ReactNode;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(`zx-sec-collapsed:${id}`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  // overflow:hidden 只在折叠/动画期间挂上：常态会把卡片阴影裁出硬边
+  const [animating, setAnimating] = useState(false);
+  const animTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(animTimer.current), []);
+  const toggle = () => {
+    setAnimating(true);
+    window.clearTimeout(animTimer.current);
+    animTimer.current = window.setTimeout(() => setAnimating(false), 550); // transitionend 的兜底
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        window.localStorage.setItem(`zx-sec-collapsed:${id}`, next ? '1' : '0');
+      } catch {
+        // 隐私模式等场景写不进去也不影响本次会话
+      }
+      return next;
+    });
+  };
+  return (
+    <section id={id} className={cx('moduleSection', 'reveal', collapsed && 'secCollapsed')}>
+      <div className="sectionHeading">
+        <span className="headingIcon">{icon}</span>
+        {titleNode}
+        <span className="headingLine" aria-hidden="true" />
+        <button
+          type="button"
+          className="secToggle"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          title={collapsed ? '展开该板块' : '折叠该板块'}
+        >
+          <span className="secIndex">{String(index).padStart(2, '0')}</span>
+          <ChevronDown size={13} className="secChevron" aria-hidden="true" />
+        </button>
+      </div>
+      <div
+        className={cx('secBody', (collapsed || animating) && 'clipped')}
+        onTransitionEnd={(e) => {
+          if (e.propertyName === 'grid-template-rows') setAnimating(false);
+        }}
+      >
+        <div className="secBodyInner">{children}</div>
+      </div>
+    </section>
+  );
+}
+
 // 把旧草稿补齐到最新结构：老的 localStorage 草稿缺 avatar / images / resume /
 // recentResearch 新字段，不补齐编辑器会崩，所以入口统一 normalize。
 function migrateContent(parsed: SiteContent): SiteContent {
@@ -134,17 +265,35 @@ function migrateContent(parsed: SiteContent): SiteContent {
     if (typeof content.profile.avatar !== 'string') content.profile.avatar = '';
     if (typeof content.profile.mark !== 'string') content.profile.mark = 'AI';
     if (typeof content.profile.siteTitle !== 'string') content.profile.siteTitle = 'ZXEQzzg Csy Portfolio';
+    if (typeof content.profile.heroHeight !== 'number') content.profile.heroHeight = 0;
     const r = content.profile.resume;
     content.profile.resume = {
       images: Array.isArray(r?.images) ? r.images : [],
       pdf: typeof r?.pdf === 'string' ? r.pdf : '',
     };
   }
+  if (content.skills && Array.isArray(content.skills.groups)) {
+    content.skills.groups = content.skills.groups.map((g) => ({
+      ...g,
+      theme: typeof g.theme === 'string' ? g.theme : '',
+      itemColors: Array.isArray(g.itemColors) ? g.itemColors : [],
+    }));
+  }
   if (Array.isArray(content.timelineProjects)) {
     content.timelineProjects = content.timelineProjects.map((p) => ({
       ...p,
       images: Array.isArray(p.images) ? p.images : [],
+      stackColors: Array.isArray(p.stackColors) ? p.stackColors : [],
     }));
+  }
+  for (const key of ['major', 'courses'] as const) {
+    if (Array.isArray(content[key])) {
+      content[key] = content[key].map((m) => ({
+        ...m,
+        images: Array.isArray(m.images) ? m.images : [],
+        imagePos: Array.isArray(m.imagePos) ? m.imagePos : [],
+      }));
+    }
   }
   content.recentResearch = Array.isArray(content.recentResearch)
     ? content.recentResearch.map((r) => ({
@@ -160,6 +309,7 @@ function migrateContent(parsed: SiteContent): SiteContent {
       }))
     : [];
   if (!content.sectionTitles || typeof content.sectionTitles !== 'object') content.sectionTitles = {};
+  if (!content.uiStrings || typeof content.uiStrings !== 'object') content.uiStrings = {};
   if (content.profile) {
     content.profile.ticker = Array.isArray(content.profile.ticker)
       ? content.profile.ticker.map((t, i) => ({
@@ -333,6 +483,9 @@ function Portfolio({
   const edit = useEdit();
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [galleryModalId, setGalleryModalId] = useState<string | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [heroBadge, setHeroBadge] = useState<number | null>(null);
+  const heroH = clampH(content.profile.heroHeight, 0, 200, 900);
 
   const sections = (Object.keys(sectionLabels) as SectionKey[]).filter(
     (s) => s !== 'research' || content.recentResearch.length > 0 || Boolean(edit)
@@ -437,7 +590,7 @@ function Portfolio({
           {(edit || content.profile.resume.images.length > 0 || Boolean(content.profile.resume.pdf)) && (
             <section className="resumeBlock">
               <p className="blockLabel">
-                <FileText size={14} /> 目前简历 · CV
+                <FileText size={14} /> <UIText content={content} locale={locale} k="resumeLabel" />
                 {edit && (
                   <button
                     type="button"
@@ -449,23 +602,25 @@ function Portfolio({
                   </button>
                 )}
               </p>
-              {content.profile.resume.images.length > 0 && (
-                <button
-                  type="button"
-                  className="resumeView"
-                  onClick={() => (edit ? edit.openDrawer({ type: 'resume' }) : openLightbox(content.profile.resume.images, 0))}
-                >
-                  <Eye size={15} /> 查看简历
-                </button>
-              )}
+              {/* 编辑态渲染为 span：<button> 内的 contentEditable 在 Chrome 里无法聚焦编辑 */}
+              {content.profile.resume.images.length > 0 &&
+                (edit ? (
+                  <span className="resumeView" role="button" onClick={() => edit.openDrawer({ type: 'resume' })}>
+                    <Eye size={15} /> <UIText content={content} locale={locale} k="resumeView" />
+                  </span>
+                ) : (
+                  <button type="button" className="resumeView" onClick={() => openLightbox(content.profile.resume.images, 0)}>
+                    <Eye size={15} /> <UIText content={content} locale={locale} k="resumeView" />
+                  </button>
+                ))}
               {content.profile.resume.pdf &&
                 (edit ? (
-                  <button type="button" className="resumeDownload" onClick={() => edit.openDrawer({ type: 'resume' })}>
-                    <Download size={15} /> 下载 PDF 简历
-                  </button>
+                  <span className="resumeDownload" role="button" onClick={() => edit.openDrawer({ type: 'resume' })}>
+                    <Download size={15} /> <UIText content={content} locale={locale} k="resumeDownload" />
+                  </span>
                 ) : (
                   <a className="resumeDownload" href={assetUrl(content.profile.resume.pdf)} download target="_blank" rel="noreferrer">
-                    <Download size={15} /> 下载 PDF 简历
+                    <Download size={15} /> <UIText content={content} locale={locale} k="resumeDownload" />
                   </a>
                 ))}
               {edit && content.profile.resume.images.length === 0 && !content.profile.resume.pdf && (
@@ -476,12 +631,12 @@ function Portfolio({
 
           <section className="microPanel">
             <div>
-              <span>{secLT(content, 'experience')[locale]}</span>
+              <RichText as="span" text={secLT(content, 'experience')[locale]} />
               <strong>{content.timelineProjects.length}</strong>
             </div>
             <div>
-              <span>{secLT(content, 'gallery')[locale]}</span>
-              <strong>{content.galleryProjects.length}</strong>
+              <RichText as="span" text={secLT(content, 'gallery')[locale]} />
+              <strong>{content.galleryProjects.filter((p) => p.hidden !== true).length}</strong>
             </div>
           </section>
         </div>
@@ -533,13 +688,18 @@ function Portfolio({
                 }}
               >
                 <span className="railDot" aria-hidden="true" />
-                <span className="railLabel">{secLT(content, section)[locale]}</span>
+                <RichText as="span" className="railLabel" text={secLT(content, section)[locale]} />
               </a>
             ))}
           </nav>
 
           <div className="mainFlow">
-            <section id="intro" className="introBand reveal">
+            <section
+              id="intro"
+              className="introBand reveal"
+              ref={heroRef}
+              style={heroH ? { minHeight: heroH } : undefined}
+            >
               <p className="eyebrow">
                 <Sparkles size={14} />
                 <SectionTitleLT content={content} locale={locale} k="intro" as="span" />
@@ -572,21 +732,45 @@ function Portfolio({
                 onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, research: setLT(c.profile.research, locale, v) } }))}
               />
               <TickerStrip content={content} locale={locale} />
+              {edit && (
+                <span
+                  className="resizeHandle heroResize"
+                  title="拖动调整个人介绍框高度 · 双击恢复自适应"
+                  onPointerDown={(e) => {
+                    const el = heroRef.current;
+                    if (!el) return;
+                    dragVertical(e, {
+                      start: el.getBoundingClientRect().height,
+                      min: 200,
+                      max: 900,
+                      onLive: (v) => {
+                        el.style.minHeight = `${v}px`;
+                        setHeroBadge(v);
+                      },
+                      onEnd: (v) => {
+                        el.style.minHeight = '';
+                        setHeroBadge(null);
+                        edit.set((c) => ({ ...c, profile: { ...c.profile, heroHeight: v } }));
+                      },
+                    });
+                  }}
+                  onDoubleClick={() => edit.set((c) => ({ ...c, profile: { ...c.profile, heroHeight: 0 } }))}
+                />
+              )}
+              {heroBadge !== null && <span className="resizeBadge">{heroBadge}px</span>}
             </section>
 
             <SkillsSection content={content} locale={locale} />
             <ExperienceSection content={content} locale={locale} onOpenImages={openLightbox} />
             <GallerySection content={content} locale={locale} onOpenModal={setGalleryModalId} />
 
-            <section id="major" className="moduleSection reveal">
-              <SectionHeading index={4} icon={<GraduationCap size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="major" />} />
-              <InfoGrid modules={content.major} locale={locale} listKey="major" addLabel="添加专业模块" />
-            </section>
+            <CollapsibleSection id="major" index={4} icon={<GraduationCap size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="major" />}>
+              <InfoGrid modules={content.major} locale={locale} listKey="major" addLabel="添加专业模块" onOpenImages={openLightbox} />
+            </CollapsibleSection>
 
-            <section id="courses" className="moduleSection reveal">
-              <SectionHeading index={5} icon={<BookOpen size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="courses" />} />
-              <InfoGrid modules={content.courses} locale={locale} listKey="courses" addLabel="添加课程" />
-            </section>
+            <CollapsibleSection id="courses" index={5} icon={<BookOpen size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="courses" />}>
+              <InfoGrid modules={content.courses} locale={locale} listKey="courses" addLabel="添加课程" onOpenImages={openLightbox} />
+            </CollapsibleSection>
 
             <ResearchSection content={content} locale={locale} onOpenImages={openLightbox} />
 
@@ -604,7 +788,13 @@ function Portfolio({
         />
       )}
       {galleryProject && (
-        <GalleryModal project={galleryProject} locale={locale} onClose={() => setGalleryModalId(null)} onOpenImage={openLightbox} />
+        <GalleryModal
+          content={content}
+          project={galleryProject}
+          locale={locale}
+          onClose={() => setGalleryModalId(null)}
+          onOpenImage={openLightbox}
+        />
       )}
     </main>
   );
@@ -706,7 +896,11 @@ function ProfilePhotos({ content, onOpen }: { content: SiteContent; onOpen: (ima
 // ===== 近期内容滚动条（个人介绍板块内，右→左循环） =====
 const defaultTickerLabel: LocalizedText = { zh: '近期内容', en: 'Recent', ko: '최근 소식' };
 
-const clampTickerH = (v: unknown) => Math.min(200, Math.max(36, Math.round(Number(v)) || 72));
+const clampTickerH = (v: unknown) => Math.min(360, Math.max(36, Math.round(Number(v)) || 72));
+
+// 配图放大到该高度后条目切为「图上字下」的堆叠布局
+const TICKER_STACK_AT = 96;
+const tickerStacked = (t: TickerItem) => Boolean(t.image) && clampTickerH(t.imageHeight) >= TICKER_STACK_AT;
 
 // 条目配图缩略：下缘拖拽调高，角标 × 移除
 function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial<TickerItem>) => void }) {
@@ -725,7 +919,7 @@ function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial
     let latest = Math.round(startH);
     handle.setPointerCapture(e.pointerId);
     const onMove = (ev: PointerEvent) => {
-      latest = Math.min(200, Math.max(36, Math.round(startH + (ev.clientY - startY))));
+      latest = Math.min(360, Math.max(36, Math.round(startH + (ev.clientY - startY))));
       img.style.height = `${latest}px`;
       setHBadge(latest);
     };
@@ -767,7 +961,7 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
   const edit = useEdit();
   const items = content.profile.ticker ?? [];
   const label = content.profile.tickerLabel ?? defaultTickerLabel;
-  if (!edit && items.filter((t) => t.text[locale].trim()).length === 0) return null;
+  if (!edit && items.filter((t) => plainText(t.text[locale]).trim() || t.image).length === 0) return null;
 
   const setTicker = (next: TickerItem[]) => edit?.set((c) => ({ ...c, profile: { ...c.profile, ticker: next } }));
   const addItem = (list: TickerItem[]) => [...list, { id: `ticker-${Date.now()}`, text: makeLocalizedText('') }];
@@ -795,7 +989,7 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
           {items.map((t) => {
             const patchItem = (p: Partial<TickerItem>) => setTicker(items.map((x) => (x.id === t.id ? { ...x, ...p } : x)));
             return (
-              <span className={cx('tickerItem', t.image && 'withImg')} key={`${edit.session}:${locale}:${t.id}`}>
+              <span className={cx('tickerItem', t.image && 'withImg', tickerStacked(t) && 'stacked')} key={`${edit.session}:${locale}:${t.id}`}>
                 {t.image ? <TickerThumb item={t} onPatch={patchItem} /> : <span className="tickerDot" />}
                 <EditableText
                   value={t.text[locale]}
@@ -832,7 +1026,7 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
     );
   }
 
-  const visible = items.filter((t) => t.text[locale].trim() || t.image);
+  const visible = items.filter((t) => plainText(t.text[locale]).trim() || t.image);
   const loop = [...visible, ...visible];
   return (
     <div className="tickerWrap" style={{ '--tickerDur': `${Math.max(16, visible.length * 6)}s` } as CSSProperties}>
@@ -840,13 +1034,13 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
       <div className="tickerViewport">
         <div className="tickerTrack">
           {loop.map((t, i) => (
-            <span className={cx('tickerItem', t.image && 'withImg')} key={`${t.id}-${i}`}>
+            <span className={cx('tickerItem', t.image && 'withImg', tickerStacked(t) && 'stacked')} key={`${t.id}-${i}`}>
               {t.image ? (
                 <img src={assetUrl(t.image)} alt="" style={{ height: clampTickerH(t.imageHeight) }} loading="lazy" draggable={false} />
               ) : (
                 <span className="tickerDot" />
               )}
-              {t.text[locale].trim() && <span>{t.text[locale]}</span>}
+              {plainText(t.text[locale]).trim() !== '' && <RichText as="span" text={t.text[locale]} />}
             </span>
           ))}
         </div>
@@ -862,29 +1056,36 @@ function SkillsSection({ content, locale }: { content: SiteContent; locale: Loca
   const [ver, bump] = useReducer((x: number) => x + 1, 0);
   const groups = content.skills.groups;
   const setGroups = (next: SiteContent['skills']['groups']) => edit?.set((c) => ({ ...c, skills: { ...c.skills, groups: next } }));
+  // 注意基于最新状态合并：Chips 增删会连续回调 onChange + onColors 两次，
+  // 若基于渲染闭包的 groups 计算，第二次会覆盖第一次
+  const patchGroup = (i: number, p: Partial<SiteContent['skills']['groups'][number]>) =>
+    edit?.set((c) => ({
+      ...c,
+      skills: { ...c.skills, groups: c.skills.groups.map((g, gi) => (gi === i ? { ...g, ...p } : g)) },
+    }));
   return (
-    <section id="skills" className="moduleSection reveal">
-      <SectionHeading
-        index={1}
-        icon={<BookOpen size={17} />}
-        titleNode={
-          <LT
-            value={content.skills.title}
-            locale={locale}
-            as="h2"
-            placeholder="板块标题"
-            onChange={(v) => edit?.set((c) => ({ ...c, skills: { ...c.skills, title: setLT(c.skills.title, locale, v) } }))}
-          />
-        }
-      />
+    <CollapsibleSection
+      id="skills"
+      index={1}
+      icon={<BookOpen size={17} />}
+      titleNode={
+        <LT
+          value={content.skills.title}
+          locale={locale}
+          as="h2"
+          placeholder="板块标题"
+          onChange={(v) => edit?.set((c) => ({ ...c, skills: { ...c.skills, title: setLT(c.skills.title, locale, v) } }))}
+        />
+      }
+    >
       <div className="skillGrid">
         {groups.map((group, i) => (
-          <article className="skillPanel" key={`${ver}:${i}`}>
+          <article className={cx('skillPanel', toneClass(group.theme || undefined))} key={`${ver}:${i}`}>
             {edit && (
               <ItemToolbar
                 index={i}
                 total={groups.length}
-                deleteLabel={`技能组「${group.name[locale]}」`}
+                deleteLabel={`技能组「${plainText(group.name[locale])}」`}
                 onMove={(dir) => {
                   bump();
                   setGroups(moveIn(groups, i, dir));
@@ -900,9 +1101,20 @@ function SkillsSection({ content, locale }: { content: SiteContent; locale: Loca
               locale={locale}
               as="h3"
               placeholder="分组名"
-              onChange={(v) => setGroups(groups.map((g, gi) => (gi === i ? { ...g, name: setLT(g.name, locale, v) } : g)))}
+              onChange={(v) => patchGroup(i, { name: setLT(group.name, locale, v) })}
             />
-            <Chips items={group.items} onChange={edit ? (items) => setGroups(groups.map((g, gi) => (gi === i ? { ...g, items } : g))) : undefined} />
+            <Chips
+              items={group.items}
+              colors={group.itemColors}
+              onChange={edit ? (items) => patchGroup(i, { items }) : undefined}
+              onColors={edit ? (itemColors) => patchGroup(i, { itemColors }) : undefined}
+            />
+            {edit && (
+              <div className="panelThemeRow">
+                <span className="panelThemeLabel">大框配色</span>
+                <ThemeDots value={group.theme ?? ''} onPick={(k) => patchGroup(i, { theme: k })} />
+              </div>
+            )}
           </article>
         ))}
         {edit && (
@@ -911,12 +1123,12 @@ function SkillsSection({ content, locale }: { content: SiteContent; locale: Loca
             label="添加技能组"
             onClick={() => {
               bump();
-              setGroups([...groups, { name: makeLocalizedText('新技能组'), items: [] }]);
+              setGroups([...groups, { name: makeLocalizedText('新技能组'), items: [], theme: '', itemColors: [] }]);
             }}
           />
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -953,11 +1165,18 @@ function ExperienceSection({
   const edit = useEdit();
   const projects = content.timelineProjects;
   return (
-    <section id="experience" className="moduleSection reveal">
-      <SectionHeading index={2} icon={<BriefcaseBusiness size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="experience" />} />
+    <CollapsibleSection id="experience" index={2} icon={<BriefcaseBusiness size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="experience" />}>
       <div className="experienceList">
         {projects.map((project, i) => (
-          <TimelineProjectCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenImages={onOpenImages} />
+          <TimelineProjectCard
+            key={project.id}
+            content={content}
+            project={project}
+            index={i}
+            total={projects.length}
+            locale={locale}
+            onOpenImages={onOpenImages}
+          />
         ))}
         {edit && (
           <AddGhost
@@ -969,17 +1188,19 @@ function ExperienceSection({
           />
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
 function TimelineProjectCard({
+  content,
   project,
   index,
   total,
   locale,
   onOpenImages,
 }: {
+  content: SiteContent;
   project: TimelineProject;
   index: number;
   total: number;
@@ -996,7 +1217,7 @@ function TimelineProjectCard({
         <ItemToolbar
           index={index}
           total={total}
-          deleteLabel={`项目「${project.title[locale]}」`}
+          deleteLabel={`项目「${plainText(project.title[locale])}」`}
           onMove={(dir) => edit.set((c) => ({ ...c, timelineProjects: moveIn(c.timelineProjects, index, dir) }))}
           onDelete={() => edit.set((c) => ({ ...c, timelineProjects: c.timelineProjects.filter((p) => p.id !== project.id) }))}
           buttons={[
@@ -1024,7 +1245,7 @@ function TimelineProjectCard({
         {project.images.length > 0 ? (
           <ProjectImageStrip
             images={project.images}
-            title={project.title[locale]}
+            title={plainText(project.title[locale])}
             height={clampH(project.imageHeight, 220, 120, 560)}
             onOpen={(idx) => (edit ? edit.openDrawer({ type: 'timeline-media', id: project.id }) : onOpenImages(project.images, idx))}
             onHeight={edit ? (h) => patch({ imageHeight: h }) : undefined}
@@ -1034,13 +1255,21 @@ function TimelineProjectCard({
         )}
         <div className="detailGrid">
           <div className="infoPill">
-            <span>Stack</span>
-            <Chips className="pillChips" items={project.stack} onChange={edit ? (stack) => patch({ stack }) : undefined} />
+            <span>
+              <UIText content={content} locale={locale} k="pillStack" />
+            </span>
+            <Chips
+              className="pillChips"
+              items={project.stack}
+              colors={project.stackColors}
+              onChange={edit ? (stack) => patch({ stack }) : undefined}
+              onColors={edit ? (stackColors) => patch({ stackColors }) : undefined}
+            />
           </div>
-          <InfoPill label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}>
+          <InfoPill label={<UIText content={content} locale={locale} k="pillRole" />}>
             <LT value={project.role} locale={locale} as="p" placeholder="职责" onChange={(v) => patch({ role: setLT(project.role, locale, v) })} />
           </InfoPill>
-          <InfoPill label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}>
+          <InfoPill label={<UIText content={content} locale={locale} k="pillOutcome" />}>
             <LT value={project.outcome} locale={locale} as="p" placeholder="成果" onChange={(v) => patch({ outcome: setLT(project.outcome, locale, v) })} />
           </InfoPill>
         </div>
@@ -1205,13 +1434,21 @@ function GallerySection({
   onOpenModal: (id: string) => void;
 }) {
   const edit = useEdit();
-  const projects = content.galleryProjects;
+  // 编辑态显示全部（隐藏的半透明可复原）；公开页过滤掉 hidden
+  const projects = edit ? content.galleryProjects : content.galleryProjects.filter((p) => p.hidden !== true);
   return (
-    <section id="gallery" className="moduleSection reveal">
-      <SectionHeading index={3} icon={<Sparkles size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="gallery" />} />
+    <CollapsibleSection id="gallery" index={3} icon={<Sparkles size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="gallery" />}>
       <div className="academicGallery">
         {projects.map((project, i) => (
-          <GalleryCard key={project.id} project={project} index={i} total={projects.length} locale={locale} onOpenModal={onOpenModal} />
+          <GalleryCard
+            key={project.id}
+            content={content}
+            project={project}
+            index={i}
+            total={projects.length}
+            locale={locale}
+            onOpenModal={onOpenModal}
+          />
         ))}
         {edit && (
           <AddGhost
@@ -1221,17 +1458,19 @@ function GallerySection({
           />
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
 function GalleryCard({
+  content,
   project,
   index,
   total,
   locale,
   onOpenModal,
 }: {
+  content: SiteContent;
   project: GalleryProject;
   index: number;
   total: number;
@@ -1245,10 +1484,11 @@ function GalleryCard({
   const coverH = clampH(project.coverHeight, 200, 120, 520);
   const coverRef = useRef<HTMLDivElement>(null);
   const [coverBadge, setCoverBadge] = useState<number | null>(null);
+  const hidden = project.hidden === true;
   return (
     <article
       ref={cardRef}
-      className={cx('galleryCard', !edit && 'clickable', wBadge !== null && 'resizing')}
+      className={cx('galleryCard', !edit && 'clickable', wBadge !== null && 'resizing', edit && hidden && 'isHidden')}
       style={{ '--w': widthPct } as CSSProperties}
       onClick={!edit ? () => onOpenModal(project.id) : undefined}
     >
@@ -1256,23 +1496,32 @@ function GalleryCard({
         <ItemToolbar
           index={index}
           total={total}
-          deleteLabel={`学术项目「${project.title[locale]}」`}
+          deleteLabel={`学术项目「${plainText(project.title[locale])}」`}
           onMove={(dir) => edit.set((c) => ({ ...c, galleryProjects: moveIn(c.galleryProjects, index, dir) }))}
           onDelete={() => edit.set((c) => ({ ...c, galleryProjects: c.galleryProjects.filter((p) => p.id !== project.id) }))}
           buttons={[
             { icon: <ImagePlus size={14} />, title: '更换封面', onClick: () => edit.openDrawer({ type: 'gallery-cover', id: project.id }) },
             { icon: <Maximize2 size={14} />, title: '编辑详情弹窗内容', onClick: () => onOpenModal(project.id) },
+            {
+              icon: hidden ? <Eye size={14} /> : <EyeOff size={14} />,
+              title: hidden ? '恢复对访客展示' : '对访客隐藏（编辑页仍可见，可随时恢复）',
+              onClick: () => patch({ hidden: !hidden }),
+            },
           ]}
         />
       )}
+      {edit && hidden && (
+        <span className="hiddenBadge">
+          <EyeOff size={11} /> 已对访客隐藏
+        </span>
+      )}
       <div className="galleryCover" ref={coverRef} style={{ '--coverH': `${coverH}px` } as CSSProperties}>
         {project.cover && <BlurFill src={project.cover} />}
-        <img src={assetUrl(project.cover)} alt={project.title[locale]} loading="lazy" draggable={false} />
-        {!edit && (
-          <span className="galleryMore">
-            <Maximize2 size={13} /> 查看详情
-          </span>
-        )}
+        <img src={assetUrl(project.cover)} alt={plainText(project.title[locale])} loading="lazy" draggable={false} />
+        {/* 编辑态也渲染：角标文字本身可就地编辑（body[data-editing] 下常显） */}
+        <span className="galleryMore">
+          <Maximize2 size={13} /> <UIText content={content} locale={locale} k="galleryMore" />
+        </span>
         {edit && (
           <span
             className="resizeHandle"
@@ -1330,11 +1579,13 @@ function GalleryCard({
 
 // 画廊详情弹窗：展示（并可就地编辑）此前从未露出的 description/role/result/stack
 function GalleryModal({
+  content,
   project,
   locale,
   onClose,
   onOpenImage,
 }: {
+  content: SiteContent;
   project: GalleryProject;
   locale: Locale;
   onClose: () => void;
@@ -1352,7 +1603,7 @@ function GalleryModal({
   }, [onClose]);
 
   const patch = (p: Partial<GalleryProject>) => edit?.set((c) => ({ ...c, galleryProjects: updIn(c.galleryProjects, project.id, p) }));
-  const show = (lt: LocalizedText) => Boolean(edit) || lt[locale].trim() !== '';
+  const show = (lt: LocalizedText) => Boolean(edit) || plainText(lt[locale]).trim() !== '';
 
   return (
     <div className="modalOverlay" onClick={onClose} role="dialog" aria-modal="true">
@@ -1362,7 +1613,7 @@ function GalleryModal({
         </button>
         <div className="galleryModalCover" onClick={() => project.cover && onOpenImage([project.cover], 0)} title="点击看大图">
           {project.cover && <BlurFill src={project.cover} />}
-          <img src={assetUrl(project.cover)} alt={project.title[locale]} />
+          <img src={assetUrl(project.cover)} alt={plainText(project.title[locale])} />
         </div>
         <div className="galleryModalBody">
           <LT
@@ -1388,12 +1639,12 @@ function GalleryModal({
           <LTList items={project.notes} locale={locale} as="div" className="galleryNotes" addLabel="添加说明" onChange={edit ? (notes) => patch({ notes }) : undefined} />
           <div className="modalPills">
             {show(project.role) && (
-              <InfoPill label={locale === 'zh' ? '职责' : locale === 'ko' ? '역할' : 'Role'}>
+              <InfoPill label={<UIText content={content} locale={locale} k="pillRole" />}>
                 <LT value={project.role} locale={locale} as="p" placeholder="职责" onChange={(v) => patch({ role: setLT(project.role, locale, v) })} />
               </InfoPill>
             )}
             {show(project.result) && (
-              <InfoPill label={locale === 'zh' ? '成果' : locale === 'ko' ? '결과' : 'Outcome'}>
+              <InfoPill label={<UIText content={content} locale={locale} k="pillOutcome" />}>
                 <LT value={project.result} locale={locale} as="p" placeholder="成果" onChange={(v) => patch({ result: setLT(project.result, locale, v) })} />
               </InfoPill>
             )}
@@ -1441,8 +1692,7 @@ function ResearchSection({
   const items = content.recentResearch;
   if (!edit && items.length === 0) return null;
   return (
-    <section id="research" className="moduleSection reveal">
-      <SectionHeading index={6} icon={<FlaskConical size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="research" />} />
+    <CollapsibleSection id="research" index={6} icon={<FlaskConical size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="research" />}>
       <div className="researchGrid">
         {items.map((item, i) => (
           <ResearchCard key={item.id} item={item} index={i} total={items.length} locale={locale} onOpenImages={onOpenImages} />
@@ -1455,7 +1705,7 @@ function ResearchSection({
           />
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1487,7 +1737,7 @@ function ResearchCard({
         <ItemToolbar
           index={index}
           total={total}
-          deleteLabel={`条目「${title}」`}
+          deleteLabel={`条目「${plainText(title)}」`}
           onMove={(dir) => edit.set((c) => ({ ...c, recentResearch: moveIn(c.recentResearch, index, dir) }))}
           onDelete={() => edit.set((c) => ({ ...c, recentResearch: c.recentResearch.filter((r) => r.id !== item.id) }))}
           buttons={[{ icon: <ImagePlus size={14} />, title: '配图 / PDF / 展示样式', onClick: () => edit.openDrawer({ type: 'research-media', id: item.id }) }]}
@@ -1496,7 +1746,7 @@ function ResearchCard({
       <ResearchMediaView item={item} onClick={openMedia ?? (item.image ? () => onOpenImages([item.image!], 0) : undefined)} />
       <div className="researchBody">
         <div className="researchTop">
-          <span className="researchKind" style={kindStyle(item.kind || '论文')}>
+          <span className="researchKind" style={kindStyle(plainText(item.kind) || '论文')}>
             <S value={item.kind} as="span" placeholder="类型" onChange={(v) => patch({ kind: v })} />
           </span>
           <span className="researchIcons">
@@ -1528,10 +1778,10 @@ function ResearchCard({
             <LT value={item.title} locale={locale} as="span" placeholder="标题" onChange={(v) => patch({ title: setLT(item.title, locale, v) })} />
           ) : item.link ? (
             <a href={item.link} target="_blank" rel="noreferrer">
-              {title}
+              <RichText as="span" text={title} />
             </a>
           ) : (
-            title
+            <RichText as="span" text={title} />
           )}
         </h3>
         {(edit || item.note[locale]) && (
@@ -1553,18 +1803,7 @@ function ResearchCard({
 }
 
 // ===== 公共小组件 =====
-function SectionHeading({ icon, title, titleNode, index }: { icon: ReactNode; title?: string; titleNode?: ReactNode; index: number }) {
-  return (
-    <div className="sectionHeading">
-      <span className="headingIcon">{icon}</span>
-      {titleNode ?? <h2>{title}</h2>}
-      <span className="headingLine" aria-hidden="true" />
-      <span className="secIndex">{String(index).padStart(2, '0')}</span>
-    </div>
-  );
-}
-
-function InfoPill({ label, children }: { label: string; children: ReactNode }) {
+function InfoPill({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="infoPill">
       <span>{label}</span>
@@ -1578,31 +1817,39 @@ function InfoGrid({
   locale,
   listKey,
   addLabel,
+  onOpenImages,
 }: {
   modules: InfoModule[];
   locale: Locale;
   listKey: 'courses' | 'major';
   addLabel: string;
+  onOpenImages: (images: string[], index: number) => void;
 }) {
   const edit = useEdit();
+  // 专业介绍：卡片可拖宽（自由宽度布局）+ 支持配图；课程保持三列网格
+  const media = listKey === 'major';
   const setList = (next: InfoModule[]) => edit?.set((c) => ({ ...c, [listKey]: next } as SiteContent));
+  const patchIn = (id: string, p: Partial<InfoModule>) =>
+    edit?.set((c) => ({ ...c, [listKey]: updIn(c[listKey], id, p) } as SiteContent));
+  // 基于最新模块状态计算补丁：上传等异步回调不能用渲染闭包里的旧数组整组覆盖
+  const patchWithIn = (id: string, fn: (cur: InfoModule) => Partial<InfoModule>) =>
+    edit?.set((c) => ({ ...c, [listKey]: c[listKey].map((x) => (x.id === id ? { ...x, ...fn(x) } : x)) } as SiteContent));
   return (
-    <div className="infoGrid">
+    <div className={cx('infoGrid', media && 'freeGrid')}>
       {modules.map((m, i) => (
-        <article className="infoCard" key={m.id}>
-          {edit && (
-            <ItemToolbar
-              index={i}
-              total={modules.length}
-              deleteLabel={`「${m.title[locale]}」`}
-              onMove={(dir) => setList(moveIn(modules, i, dir))}
-              onDelete={() => setList(modules.filter((x) => x.id !== m.id))}
-            />
-          )}
-          <LT value={m.title} locale={locale} as="h3" placeholder="标题" onChange={(v) => setList(updIn(modules, m.id, { title: setLT(m.title, locale, v) }))} />
-          <LT rich value={m.body} locale={locale} as="p" placeholder="描述" onChange={(v) => setList(updIn(modules, m.id, { body: setLT(m.body, locale, v) }))} />
-          <Chips items={m.tags} onChange={edit ? (tags) => setList(updIn(modules, m.id, { tags })) : undefined} />
-        </article>
+        <InfoCard
+          key={m.id}
+          m={m}
+          index={i}
+          total={modules.length}
+          locale={locale}
+          media={media}
+          setList={setList}
+          modules={modules}
+          patch={(p) => patchIn(m.id, p)}
+          patchWith={(fn) => patchWithIn(m.id, fn)}
+          onOpenImages={onOpenImages}
+        />
       ))}
       {edit && (
         <AddGhost
@@ -1617,21 +1864,238 @@ function InfoGrid({
   );
 }
 
+function InfoCard({
+  m,
+  index,
+  total,
+  locale,
+  media,
+  modules,
+  setList,
+  patch,
+  patchWith,
+  onOpenImages,
+}: {
+  m: InfoModule;
+  index: number;
+  total: number;
+  locale: Locale;
+  media: boolean;
+  modules: InfoModule[];
+  setList: (next: InfoModule[]) => void;
+  patch: (p: Partial<InfoModule>) => void;
+  patchWith: (fn: (cur: InfoModule) => Partial<InfoModule>) => void;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  const widthPct = clampWidthPct(m.widthPct, 33.3);
+  const { cardRef, wBadge, startResize } = useWidthDrag(widthPct, (w) => patch({ widthPct: w }));
+  return (
+    <article
+      ref={cardRef}
+      className={cx('infoCard', media && wBadge !== null && 'resizing')}
+      style={media ? ({ '--w': widthPct } as CSSProperties) : undefined}
+    >
+      {edit && (
+        <ItemToolbar
+          index={index}
+          total={total}
+          deleteLabel={`「${plainText(m.title[locale])}」`}
+          onMove={(dir) => setList(moveIn(modules, index, dir))}
+          onDelete={() => setList(modules.filter((x) => x.id !== m.id))}
+        />
+      )}
+      <LT value={m.title} locale={locale} as="h3" placeholder="标题" onChange={(v) => patch({ title: setLT(m.title, locale, v) })} />
+      <LT rich value={m.body} locale={locale} as="p" placeholder="描述" onChange={(v) => patch({ body: setLT(m.body, locale, v) })} />
+      {media && <InfoMedia m={m} patch={patch} patchWith={patchWith} onOpenImages={onOpenImages} />}
+      <Chips items={m.tags} onChange={edit ? (tags) => patch({ tags }) : undefined} />
+      {edit && media && <CardWidthHandle start={startResize} reset={() => patch({ widthPct: 33.3 })} />}
+      {media && wBadge !== null && <span className="resizeBadge">{wBadge}%</span>}
+    </article>
+  );
+}
+
+// 专业介绍配图：固定框高（可拖下缘调 120–520px），编辑态直接按住图片拖动做
+// 「位移」——改 object-position 选取展示区域；公开页点击看大图
+function InfoMedia({
+  m,
+  patch,
+  patchWith,
+  onOpenImages,
+}: {
+  m: InfoModule;
+  patch: (p: Partial<InfoModule>) => void;
+  patchWith: (fn: (cur: InfoModule) => Partial<InfoModule>) => void;
+  onOpenImages: (images: string[], index: number) => void;
+}) {
+  const edit = useEdit();
+  const images = m.images ?? [];
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [badge, setBadge] = useState<string | null>(null);
+  const height = clampH(m.imageHeight, 200, 120, 520);
+
+  // "x y" 百分比解析：缺失/空串回落居中（与序列化端默认一致），单值缺省补 50
+  const parsePos = (raw: string | undefined) => {
+    const s = (raw ?? '').trim();
+    if (!s) return { x: 50, y: 50 };
+    const parts = s.split(/[\s,]+/).map(Number);
+    const c = (n: number) => (Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50);
+    return { x: c(parts[0]), y: c(parts[1]) };
+  };
+  const posOf = (i: number) => parsePos(m.imagePos?.[i]);
+  const posArrOf = (cur: InfoModule) => (cur.images ?? []).map((_, i) => {
+    const p = parsePos(cur.imagePos?.[i]);
+    return `${p.x} ${p.y}`;
+  });
+  const appendImage = (p: string) =>
+    patchWith((cur) => ({ images: [...(cur.images ?? []), p], imagePos: [...posArrOf(cur), '50 50'] }));
+
+  if (images.length === 0) {
+    return edit ? (
+      <div className="uploadRow">
+        <UploadButton folder={ASSET_FOLDERS.major} label="上传配图" onUploaded={appendImage} />
+      </div>
+    ) : null;
+  }
+
+  const panStart = (e: ReactPointerEvent<HTMLImageElement>, i: number) => {
+    if (!edit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const img = e.currentTarget;
+    const rect = img.getBoundingClientRect();
+    const start = posOf(i);
+    const sx = e.clientX;
+    const sy = e.clientY;
+    let latest = start;
+    let moved = false;
+    img.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      moved = true;
+      const dx = ((ev.clientX - sx) / Math.max(1, rect.width)) * 130;
+      const dy = ((ev.clientY - sy) / Math.max(1, rect.height)) * 130;
+      const c = (n: number) => Math.min(100, Math.max(0, Math.round(n * 10) / 10));
+      latest = { x: c(start.x - dx), y: c(start.y - dy) };
+      img.style.objectPosition = `${latest.x}% ${latest.y}%`;
+      setBadge(`位移 ${Math.round(latest.x)} · ${Math.round(latest.y)}`);
+    };
+    const onUp = () => {
+      img.removeEventListener('pointermove', onMove);
+      img.removeEventListener('pointerup', onUp);
+      img.removeEventListener('pointercancel', onUp);
+      setBadge(null);
+      if (moved) {
+        patchWith((cur) => {
+          const next = posArrOf(cur);
+          if (i < next.length) next[i] = `${latest.x} ${latest.y}`;
+          return { imagePos: next };
+        });
+      }
+    };
+    img.addEventListener('pointermove', onMove);
+    img.addEventListener('pointerup', onUp);
+    img.addEventListener('pointercancel', onUp);
+  };
+
+  return (
+    <div className="infoMedia" ref={wrapRef} style={{ '--infoH': `${height}px` } as CSSProperties}>
+      {images.map((src, i) => {
+        const p = posOf(i);
+        return (
+          <div
+            className={cx('infoMediaItem', !edit && 'clickable')}
+            key={`${src}-${i}`}
+            role={!edit ? 'button' : undefined}
+            title={edit ? '按住图片拖动可调整显示位置（位移）' : '点击看大图'}
+            onClick={() => !edit && onOpenImages(images, i)}
+          >
+            <img
+              src={assetUrl(src)}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              style={{ objectPosition: `${p.x}% ${p.y}%` }}
+              onPointerDown={(e) => panStart(e, i)}
+            />
+            {edit && (
+              <button
+                type="button"
+                className="infoMediaX"
+                title="移除该图"
+                onClick={() =>
+                  patchWith((cur) => ({
+                    images: (cur.images ?? []).filter((_, xi) => xi !== i),
+                    imagePos: posArrOf(cur).filter((_, xi) => xi !== i),
+                  }))
+                }
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {edit && (
+        <>
+          <span className="infoMediaAdd">
+            <UploadButton
+              compact
+              folder={ASSET_FOLDERS.major}
+              label="继续上传配图"
+              icon={<ImagePlus size={13} />}
+              onUploaded={appendImage}
+            />
+          </span>
+          <span
+            className="resizeHandle"
+            title="拖动调整图片框高度 · 双击恢复 200px"
+            onPointerDown={(e) =>
+              dragVertical(e, {
+                start: height,
+                min: 120,
+                max: 520,
+                onLive: (v) => {
+                  wrapRef.current?.style.setProperty('--infoH', `${v}px`);
+                  setBadge(`${v}px`);
+                },
+                onEnd: (v) => {
+                  wrapRef.current?.style.removeProperty('--infoH');
+                  setBadge(null);
+                  patch({ imageHeight: v });
+                },
+              })
+            }
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              patch({ imageHeight: 200 });
+            }}
+          />
+        </>
+      )}
+      {badge !== null && <span className="resizeBadge">{badge}</span>}
+    </div>
+  );
+}
+
 function Footer({ content, locale }: { content: SiteContent; locale: Locale }) {
-  const plainName = content.profile.name.replace(/<[^>]+>/g, '').trim() || 'ZXEQzzg';
+  const edit = useEdit();
+  const plainName = plainText(content.profile.name).trim() || 'ZXEQzzg';
   return (
     <footer className="siteFooter reveal">
       <span>
         © {new Date().getFullYear()} {plainName}
       </span>
       <span className="footDot">·</span>
-      <span>{content.profile.location[locale]}</span>
+      <RichText as="span" text={content.profile.location[locale]} />
       <span className="footDot">·</span>
-      <a href="https://github.com/ZXEQzzg" target="_blank" rel="noreferrer">
-        <Github size={13} /> GitHub
+      <a href="https://github.com/ZXEQzzg" target="_blank" rel="noreferrer" onClick={edit ? (e) => e.preventDefault() : undefined}>
+        <Github size={13} /> <UIText content={content} locale={locale} k="footGithub" />
       </a>
       <span className="footSpacer" />
-      <span className="footMuted">Vite + React · GitHub Pages</span>
+      <span className="footMuted">
+        <UIText content={content} locale={locale} k="footNote" />
+      </span>
     </footer>
   );
 }

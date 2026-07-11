@@ -43,6 +43,7 @@ import {
   RotateCcw,
   Send,
   Trash2,
+  Type,
   Upload,
   X,
 } from 'lucide-react';
@@ -93,6 +94,7 @@ export const ASSET_FOLDERS = {
   gallery: 'PPT',
   research: 'PaPer',
   ticker: 'Recent',
+  major: 'Major',
 } as const;
 
 const EditCtx = createContext<EditApi | null>(null);
@@ -118,7 +120,8 @@ export const moveIn = <T,>(arr: T[], index: number, dir: -1 | 1): T[] => {
   return next;
 };
 
-const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** 去 HTML 标签取纯文本：用于 alt/aria/删除确认等非富文本场景 */
+export const plainText = (s: string) => s.replace(/<[^>]+>/g, '');
 
 /** 卡片行宽百分比，钳制在 24–100（1 位小数），非法值回落 def */
 export const clampWidthPct = (v: unknown, def = 50): number => {
@@ -188,8 +191,10 @@ export function dragVertical(
   const handle = e.currentTarget as HTMLElement;
   const startY = e.clientY;
   let latest = Math.round(opts.start);
+  let moved = false;
   handle.setPointerCapture(e.pointerId);
   const onMove = (ev: PointerEvent) => {
+    moved = true;
     latest = Math.min(opts.max, Math.max(opts.min, Math.round(opts.start + (ev.clientY - startY))));
     opts.onLive(latest);
   };
@@ -197,7 +202,9 @@ export function dragVertical(
     handle.removeEventListener('pointermove', onMove);
     handle.removeEventListener('pointerup', onUp);
     handle.removeEventListener('pointercancel', onUp);
-    opts.onEnd(latest);
+    // 纯点击（未拖动）不提交：onLive 从未执行，调 onEnd 会让调用方误清
+    // React 写入的行内样式（等值提交时 React diff 跳过回写，样式就此丢失）
+    if (moved) opts.onEnd(latest);
   };
   handle.addEventListener('pointermove', onMove);
   handle.addEventListener('pointerup', onUp);
@@ -231,11 +238,17 @@ export function CardWidthHandle({
   );
 }
 
-// 富文本渲染：内容字段支持 <b>/<span style=...> 等，渲染前做轻量消毒（去 script/on*/javascript:）
+// 富文本渲染：内容字段支持 <b>/<span style=...> 等，渲染前做轻量消毒。
+// 全站文字都走 dangerouslySetInnerHTML，这里是唯一防线：
+// 1. 整段去掉可执行/可加载类标签（script/iframe/object/embed/…，含 srcdoc 注入路径）
+// 2. 去 on* 事件属性——注意 HTML 允许用 / 或引号作属性分隔（<img src=x/onerror=…>），
+//    不能只认空白符
+// 3. 去 javascript: 协议
 export function sanitizeHtml(html: string): string {
   return html
     .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/<\s*\/?\s*(script|iframe|frame|object|embed|link|meta|base|form)\b[^>]*>/gi, '')
+    .replace(/([\s"'/])on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1')
     .replace(/javascript:/gi, '');
 }
 
@@ -318,23 +331,36 @@ export function EditableText({
   as?: ElementType;
   className?: string;
   placeholder?: string;
-  /** 回车时以最新文本回调（用于 chips/列表「提交并新增」的原子写入）；不传则回车=提交+失焦 */
+  /** 回车时以最新内容回调（用于 chips/列表「提交并新增」的原子写入）；不传则回车=提交+失焦 */
   onEnter?: (current: string) => void;
   onBlurText?: (text: string) => void;
 }) {
+  // 单行富文本：存 innerHTML（选中文字可经浮动工具条调色/字号/加粗），
+  // 回车仍拦截（单行语义），渲染端统一走 sanitizeHtml 消毒。
   // 注意必须冻结整个 {__html} 对象而非只冻结字符串：React 19 对
   // dangerouslySetInnerHTML 按对象引用比较，引用变了就无条件重写 innerHTML，
   // 会把用户正在输入的内容打回旧值（React 18 比较的是字符串，无此问题）。
-  const initial = useRef({ __html: escapeHtml(value) });
-  const pipeline = useCommitPipeline((el) => el.textContent ?? '', onChange);
+  const initial = useRef({ __html: sanitizeHtml(value) });
+  const ref = useRef<HTMLElement | null>(null);
+  const pipeline = useCommitPipeline((el) => el.innerHTML, onChange);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const onEnterRef = useRef(onEnter);
   onEnterRef.current = onEnter;
   const onBlurRef = useRef(onBlurText);
   onBlurRef.current = onBlurText;
+  useEffect(() => {
+    const el = ref.current;
+    if (el) richRegistry.set(el, (html) => onChangeRef.current(html));
+  }, []);
   const Tag = as as 'span';
   return (
     <Tag
+      ref={(el: HTMLElement | null) => {
+        ref.current = el;
+      }}
       className={cx('editable', className)}
+      data-rich="1"
       contentEditable
       suppressContentEditableWarning
       spellCheck={false}
@@ -345,7 +371,7 @@ export function EditableText({
         if (e.key === 'Enter') {
           e.preventDefault();
           const el = e.currentTarget as HTMLElement;
-          if (onEnterRef.current) onEnterRef.current(el.textContent ?? '');
+          if (onEnterRef.current) onEnterRef.current(el.innerHTML);
           else {
             pipeline.commit(el);
             el.blur();
@@ -424,8 +450,7 @@ export function S({
   placeholder?: string;
 }) {
   const edit = useEdit();
-  const Tag = as as 'span';
-  if (!edit) return <Tag className={className}>{value}</Tag>;
+  if (!edit) return <RichText text={value} as={as} className={className} />;
   return (
     <EditableText key={edit.session} value={value} onChange={onChange} as={as} className={className} placeholder={placeholder} />
   );
@@ -471,16 +496,57 @@ export function LT({
   placeholder?: string;
 }) {
   const edit = useEdit();
-  const Tag = as as 'p';
-  if (!edit) {
-    if (rich) return <RichText text={value[locale]} as={as} className={className} />;
-    return <Tag className={className}>{value[locale]}</Tag>;
-  }
+  if (!edit) return <RichText text={value[locale]} as={as} className={className} />;
   const key = `${edit.session}:${locale}`;
   return rich ? (
     <EditableRich key={key} value={value[locale]} onChange={onChange} as={as} className={className} placeholder={placeholder} />
   ) : (
     <EditableText key={key} value={value[locale]} onChange={onChange} as={as} className={className} placeholder={placeholder} />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 配色主题（chip 小框 / 卡片大框共用，含渐变），键名与 styles.css 的 .tone-* 一致
+// ---------------------------------------------------------------------------
+export const CHIP_THEMES: Array<{ key: string; a: string; b: string; label: string }> = [
+  { key: 'teal', a: '#6fd7c6', b: '#6fd7c6', label: '青' },
+  { key: 'gold', a: '#f2c46d', b: '#f2c46d', label: '金' },
+  { key: 'violet', a: '#a9a3ff', b: '#a9a3ff', label: '紫' },
+  { key: 'rose', a: '#ff9b9b', b: '#ff9b9b', label: '玫红' },
+  { key: 'sky', a: '#8fd0ff', b: '#8fd0ff', label: '天蓝' },
+  { key: 'mint', a: '#9be8a8', b: '#9be8a8', label: '薄荷' },
+  { key: 'sunset', a: '#f2c46d', b: '#ff9b9b', label: '落日 · 渐变' },
+  { key: 'ocean', a: '#6fd7c6', b: '#8fd0ff', label: '海洋 · 渐变' },
+  { key: 'candy', a: '#a9a3ff', b: '#ff9b9b', label: '糖果 · 渐变' },
+  { key: 'aurora', a: '#6fd7c6', b: '#a9a3ff', label: '极光 · 渐变' },
+];
+
+const themeBg = (key: string): string | undefined => {
+  const t = CHIP_THEMES.find((x) => x.key === key);
+  return t ? `linear-gradient(120deg, ${t.a}, ${t.b})` : undefined;
+};
+
+export const toneClass = (c?: string) => (c ? `tone-${c}` : undefined);
+
+/** 一排配色圆点：第一颗为「默认（清除配色）」 */
+export function ThemeDots({ value, onPick }: { value?: string; onPick: (key: string) => void }) {
+  return (
+    // mousedown 一律 preventDefault：空 chip 依赖失焦即删除，选色点击不能先触发失焦
+    <span className="themeDots" onMouseDown={(e) => e.preventDefault()} onClick={(e) => e.stopPropagation()}>
+      <button type="button" className={cx('themeDot', 'none', !value && 'on')} title="默认（无配色）" onClick={() => onPick('')}>
+        <X size={9} />
+      </button>
+      {CHIP_THEMES.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          className={cx('themeDot', value === t.key && 'on')}
+          title={t.label}
+          style={{ background: themeBg(t.key) }}
+          onClick={() => onPick(t.key)}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -491,16 +557,23 @@ export function Chips({
   items,
   onChange,
   className = 'tagCloud',
+  colors,
+  onColors,
 }: {
   items: string[];
   onChange?: (items: string[]) => void;
   className?: string;
+  /** 每个 chip 的配色主题键（与 items 一一对应，'' = 默认） */
+  colors?: string[];
+  /** 传入后编辑态每个 chip 出现配色圆点，可独立换色 */
+  onColors?: (colors: string[]) => void;
 }) {
   const edit = useEdit();
   // 结构变化（增删）时 +1 强制重挂各 chip，避免 index-key 下文本错位
   const [ver, bump] = useReducer((x: number) => x + 1, 0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef(false);
+  const [toneIdx, setToneIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!pendingFocus.current) return;
@@ -521,26 +594,33 @@ export function Chips({
     return (
       <div className={className}>
         {items.map((item, i) => (
-          <span key={`${item}-${i}`}>{item}</span>
+          <RichText as="span" key={`${item}-${i}`} className={toneClass(colors?.[i])} text={item} />
         ))}
       </div>
     );
   }
 
+  // colors 与 items 对齐后的工作副本：增删改都基于它，保证两数组同步
+  const cols = items.map((_, i) => colors?.[i] ?? '');
+
   const add = () => {
     pendingFocus.current = true;
     bump();
+    setToneIdx(null);
     onChange([...items, '']);
+    onColors?.([...cols, '']);
   };
   const removeAt = (i: number) => {
     bump();
+    setToneIdx(null);
     onChange(items.filter((_, x) => x !== i));
+    onColors?.(cols.filter((_, x) => x !== i));
   };
 
   return (
     <div className={cx(className, 'chipsEdit')} ref={wrapRef}>
       {items.map((item, i) => (
-        <span className="chip" key={`${edit.session}:${ver}:${i}`}>
+        <span className={cx('chip', toneClass(cols[i] || undefined))} key={`${edit.session}:${ver}:${i}`}>
           <EditableText
             value={item}
             placeholder="标签"
@@ -550,14 +630,36 @@ export function Chips({
               pendingFocus.current = true;
               bump();
               onChange([...items.map((x, xi) => (xi === i ? t : x)), '']);
+              onColors?.([...cols, '']);
             }}
             onBlurText={(t) => {
               if (!t.trim()) removeAt(i);
             }}
           />
+          {onColors && (
+            <button
+              type="button"
+              className={cx('chipTone', !cols[i] && 'empty')}
+              title="配色"
+              style={cols[i] ? { background: themeBg(cols[i]) } : undefined}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setToneIdx(toneIdx === i ? null : i)}
+            />
+          )}
           <button type="button" className="chipX" title="删除" onMouseDown={(e) => e.preventDefault()} onClick={() => removeAt(i)}>
             <X size={11} />
           </button>
+          {onColors && toneIdx === i && (
+            <span className="chipTonePop">
+              <ThemeDots
+                value={cols[i]}
+                onPick={(k) => {
+                  onColors(cols.map((x, xi) => (xi === i ? k : x)));
+                  setToneIdx(null);
+                }}
+              />
+            </span>
+          )}
         </span>
       ))}
       <button type="button" className="chipAdd" title="添加标签" onClick={add}>
@@ -591,27 +693,16 @@ export function LTList({
   const [ver, bump] = useReducer((x: number) => x + 1, 0);
 
   if (!edit || !onChange) {
-    const shown = items.filter((it) => it[locale].trim() !== '').slice(0, max ?? items.length);
+    const shown = items.filter((it) => plainText(it[locale]).trim() !== '').slice(0, max ?? items.length);
     if (shown.length === 0) return null;
-    if (as === 'ul') {
-      return (
-        <ul className={className}>
-          {shown.map((it, i) => (
-            <li key={i} className={itemClassName}>
-              {it[locale]}
-            </li>
-          ))}
-        </ul>
-      );
-    }
+    const Wrap = as === 'ul' ? 'ul' : 'div';
+    const rowAs = as === 'ul' ? 'li' : 'p';
     return (
-      <div className={className}>
+      <Wrap className={className}>
         {shown.map((it, i) => (
-          <p key={i} className={itemClassName}>
-            {it[locale]}
-          </p>
+          <RichText key={i} as={rowAs} className={itemClassName} text={it[locale]} />
         ))}
-      </div>
+      </Wrap>
     );
   }
 
@@ -1338,9 +1429,13 @@ export type SourceTarget = { el: HTMLElement; onChange: (html: string) => void }
 
 const SWATCHES = ['#6fd7c6', '#f2c46d', '#a9a3ff', '#ff9b9b'];
 
+// 字号档位（px）：覆盖注释小字到大标题
+const SIZE_STEPS = [12, 13, 14, 15, 16, 18, 20, 23, 26, 30, 36, 46];
+
 function FloatingToolbar({ disabled, onOpenSource }: { disabled: boolean; onOpenSource: (t: SourceTarget) => void }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number; el: HTMLElement } | null>(null);
   const [color, setColor] = useState('#6fd7c6');
+  const [showSizes, setShowSizes] = useState(false);
   const savedRange = useRef<Range | null>(null);
 
   useEffect(() => {
@@ -1405,16 +1500,18 @@ function FloatingToolbar({ disabled, onOpenSource }: { disabled: boolean; onOpen
     s.removeAllRanges();
     s.addRange(r);
   };
-  const applySize = (em: string) =>
+  const applySize = (px: number) => {
+    restoreSel();
     exec(() => {
       document.execCommand('fontSize', false, '7');
       el.querySelectorAll('font[size="7"]').forEach((f) => {
         const span = document.createElement('span');
-        span.style.fontSize = em;
+        span.style.fontSize = `${px}px`;
         while (f.firstChild) span.appendChild(f.firstChild);
         f.replaceWith(span);
       });
     });
+  };
   const applyColor = (c: string) => {
     restoreSel();
     exec(() => {
@@ -1436,14 +1533,13 @@ function FloatingToolbar({ disabled, onOpenSource }: { disabled: boolean; onOpen
         <Bold size={13} />
       </button>
       <span className="ftSep" />
-      <button type="button" className="ftText" title="小字号" onClick={() => applySize('0.85em')}>
-        小
-      </button>
-      <button type="button" className="ftText" title="大字号" onClick={() => applySize('1.3em')}>
-        大
-      </button>
-      <button type="button" className="ftText" title="特大字号" onClick={() => applySize('1.6em')}>
-        特大
+      <button
+        type="button"
+        className={cx('ftText', showSizes && 'ftOn')}
+        title="字号（展开档位）"
+        onClick={() => setShowSizes((s) => !s)}
+      >
+        <Type size={12} /> 字号
       </button>
       <span className="ftSep" />
       {SWATCHES.map((c) => (
@@ -1474,6 +1570,15 @@ function FloatingToolbar({ disabled, onOpenSource }: { disabled: boolean; onOpen
       >
         <Code size={13} />
       </button>
+      {showSizes && (
+        <span className="ftSizes">
+          {SIZE_STEPS.map((px) => (
+            <button key={px} type="button" className="ftText" title={`${px}px`} onClick={() => applySize(px)}>
+              {px}
+            </button>
+          ))}
+        </span>
+      )}
     </div>
   );
 }
