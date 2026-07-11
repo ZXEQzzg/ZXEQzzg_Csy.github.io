@@ -76,11 +76,19 @@ export type TickerItem = {
   imageHeight?: number;
 };
 
+export type AvatarStyle = {
+  shape?: 'full' | 'circle' | 'square';
+  pos?: string;
+  size?: number;
+};
+
 export type SiteContent = {
   profile: {
     name: string;
     avatar: string;
     avatars?: string[];
+    avatarStyles?: AvatarStyle[];
+    photoBackdrop?: string;
     mark?: string;
     siteTitle?: string;
     tickerLabel?: LocalizedText;

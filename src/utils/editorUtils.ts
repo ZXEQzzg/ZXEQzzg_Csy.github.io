@@ -1,4 +1,4 @@
-import type { LocalizedText, SiteContent } from '../data/siteContent';
+import type { AvatarStyle, LocalizedText, SiteContent } from '../data/siteContent';
 
 // 配色主题键（chip/卡片背景，含渐变）。编辑器 CHIP_THEMES 与 styles.css 的
 // .tone-* 类名都以此为准，序列化时非法值回落为 ''（默认无配色）。
@@ -8,10 +8,20 @@ export const validTone = (v: unknown): string => (typeof v === 'string' && (TONE
 
 /** 图片位移 "x y"（object-position 百分比）规范化，非法回落居中 */
 export const normPos = (v: unknown): string => {
-  if (typeof v !== 'string') return '50 50';
+  if (typeof v !== 'string' || !v.trim()) return '50 50';
   const parts = v.trim().split(/[\s,]+/).map(Number);
   const c = (n: number) => (Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n * 10) / 10)) : 50);
   return `${c(parts[0])} ${c(parts[1])}`;
+};
+
+/** 个人照片样式规范化：形状/位置/大小（size 为照片区宽度百分比） */
+export const normAvatarStyle = (s?: AvatarStyle): Required<AvatarStyle> => {
+  const size = Math.round(Number(s?.size));
+  return {
+    shape: s?.shape === 'circle' || s?.shape === 'square' ? s.shape : 'full',
+    pos: normPos(s?.pos),
+    size: Number.isFinite(size) && size >= 20 && size <= 100 ? size : 62,
+  };
 };
 
 export function makeLocalizedText(value = ''): LocalizedText {
@@ -135,11 +145,19 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  imageHeight?: number;`);
   lines.push(`};`);
   lines.push(``);
+  lines.push(`export type AvatarStyle = {`);
+  lines.push(`  shape?: 'full' | 'circle' | 'square';`);
+  lines.push(`  pos?: string;`);
+  lines.push(`  size?: number;`);
+  lines.push(`};`);
+  lines.push(``);
   lines.push(`export type SiteContent = {`);
   lines.push(`  profile: {`);
   lines.push(`    name: string;`);
   lines.push(`    avatar: string;`);
   lines.push(`    avatars?: string[];`);
+  lines.push(`    avatarStyles?: AvatarStyle[];`);
+  lines.push(`    photoBackdrop?: string;`);
   lines.push(`    mark?: string;`);
   lines.push(`    siteTitle?: string;`);
   lines.push(`    tickerLabel?: LocalizedText;`);
@@ -174,6 +192,12 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`    name: ${q(data.profile.name)},`);
   lines.push(`    avatar: ${q(avatars[0] ?? '')},`);
   lines.push(`    avatars: ${genStrArr(avatars)},`);
+  lines.push(`    avatarStyles: [`);
+  for (const st of avatars.map((_, i) => normAvatarStyle(data.profile.avatarStyles?.[i]))) {
+    lines.push(`      { shape: ${q(st.shape)}, pos: ${q(st.pos)}, size: ${st.size} },`);
+  }
+  lines.push(`    ],`);
+  lines.push(`    photoBackdrop: ${q(data.profile.photoBackdrop ?? '')},`);
   lines.push(`    mark: ${q(data.profile.mark ?? 'AI')},`);
   lines.push(`    siteTitle: ${q(data.profile.siteTitle ?? 'ZXEQzzg Csy Portfolio')},`);
   lines.push(`    tickerLabel: ${genLT(data.profile.tickerLabel ?? { zh: '近期内容', en: 'Recent', ko: '최근 소식' })},`);

@@ -50,6 +50,7 @@ import {
 import {
   defaultContent,
   localeLabels,
+  type AvatarStyle,
   type Locale,
   type LocalizedText,
   type ProfileLink,
@@ -58,7 +59,7 @@ import {
   type SiteContent,
   type TimelineProject,
 } from './data/siteContent';
-import { assetUrl, makeLocalizedText, publishToGitHub, uploadImageToGitHub } from './utils/editorUtils';
+import { assetUrl, makeLocalizedText, normAvatarStyle, publishToGitHub, uploadImageToGitHub } from './utils/editorUtils';
 import { pdfFirstPageToImage } from './utils/pdfCover';
 
 export const contentStorageKey = 'zxeqzzg-portfolio-content-draft';
@@ -317,6 +318,21 @@ function useCommitPipeline(read: (el: HTMLElement) => string, onChange: (v: stri
 const isImeKey = (e: ReactKeyboardEvent<HTMLElement>) =>
   (e.nativeEvent as KeyboardEvent).isComposing || e.keyCode === 229;
 
+/** 在光标处插入换行（execCommand 不可用时手动插 <br> 兜底，如 jsdom） */
+function insertLineBreak() {
+  if (document.execCommand?.('insertLineBreak')) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const br = document.createElement('br');
+  range.insertNode(br);
+  range.setStartAfter(br);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 export function EditableText({
   value,
   onChange,
@@ -371,10 +387,18 @@ export function EditableText({
         if (e.key === 'Enter') {
           e.preventDefault();
           const el = e.currentTarget as HTMLElement;
-          if (onEnterRef.current) onEnterRef.current(el.innerHTML);
-          else {
+          if (onEnterRef.current) {
+            // chips/列表：Enter=提交并新增一条，Shift+Enter=在本条里换行
+            if (e.shiftKey) {
+              insertLineBreak();
+              pipeline.commit(el);
+            } else {
+              onEnterRef.current(el.innerHTML);
+            }
+          } else {
+            // 普通字段：Enter 直接换行（点击别处或 Esc 结束编辑）
+            insertLineBreak();
             pipeline.commit(el);
-            el.blur();
           }
         } else if (e.key === 'Escape') {
           (e.currentTarget as HTMLElement).blur();
@@ -1049,19 +1073,123 @@ function ImageListEditor({
 // ---------------------------------------------------------------------------
 type PanelProps = { content: SiteContent; api: EditApi };
 
+const AVATAR_SHAPES = [
+  ['full', '铺满'],
+  ['circle', '圆形'],
+  ['square', '方形'],
+] as const;
+
 function AvatarPanel({ content, api }: PanelProps) {
   const avatars = (content.profile.avatars ?? (content.profile.avatar ? [content.profile.avatar] : [])).filter(Boolean);
-  const setAvatars = (v: string[]) => api.set((c) => ({ ...c, profile: { ...c.profile, avatars: v, avatar: v[0] ?? '' } }));
+  const styles = avatars.map((_, i) => normAvatarStyle(content.profile.avatarStyles?.[i]));
+  // avatars 与 avatarStyles 必须一次原子提交，分两次 set 会互相覆盖
+  const commit = (nextAvatars: string[], nextStyles: AvatarStyle[]) =>
+    api.set((c) => ({
+      ...c,
+      profile: { ...c.profile, avatars: nextAvatars, avatar: nextAvatars[0] ?? '', avatarStyles: nextStyles },
+    }));
+  const patchStyle = (i: number, p: Partial<AvatarStyle>) =>
+    commit(avatars, styles.map((s, si) => (si === i ? normAvatarStyle({ ...s, ...p }) : s)));
+  const backdrop = content.profile.photoBackdrop ?? '';
+  const setBackdrop = (v: string) => api.set((c) => ({ ...c, profile: { ...c.profile, photoBackdrop: v } }));
   return (
     <>
-      <ImageListEditor
-        label="个人照片（可多张：第一张为默认展示，多张时左栏箭头/滑动切换）"
-        items={avatars}
-        onChange={setAvatars}
-        api={api}
-        folder={ASSET_FOLDERS.avatar}
-      />
-      <p className="fieldHint">建议 4:5 竖版照片，头像框按 4:5 显示；访客点击照片可全屏查看。</p>
+      <div className="editorField">
+        <span className="fieldLabel">个人照片（可多张：左栏箭头/滑动切换；圆/方头像可在左栏照片区直接拖动摆位置）</span>
+        <div className="imgList">
+          {avatars.map((p, i) => (
+            <div className="avatarRow" key={i}>
+              <div className="imgListRow">
+                {p ? (
+                  <img className="uploadPreview" src={assetUrl(p)} alt="" />
+                ) : (
+                  <div className="uploadPreview placeholder">
+                    <ImageIcon size={16} />
+                  </div>
+                )}
+                <input
+                  className="fieldInput"
+                  value={p}
+                  placeholder="/assets/文件名"
+                  onChange={(e) => commit(avatars.map((x, xi) => (xi === i ? e.target.value : x)), styles)}
+                />
+                <button
+                  type="button"
+                  className="iconMiniButton"
+                  disabled={i === 0}
+                  onClick={() => commit(moveIn(avatars, i, -1), moveIn(styles, i, -1))}
+                  title="上移"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="iconMiniButton"
+                  disabled={i === avatars.length - 1}
+                  onClick={() => commit(moveIn(avatars, i, 1), moveIn(styles, i, 1))}
+                  title="下移"
+                >
+                  <ChevronDown size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="iconDangerButton"
+                  onClick={() => commit(avatars.filter((_, xi) => xi !== i), styles.filter((_, xi) => xi !== i))}
+                  title="删除"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="avatarRowOpts">
+                <div className="segmented drawerSeg avatarShapeSeg">
+                  {AVATAR_SHAPES.map(([sh, label]) => (
+                    <button key={sh} type="button" className={styles[i].shape === sh ? 'active' : ''} onClick={() => patchStyle(i, { shape: sh })}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {styles[i].shape !== 'full' && (
+                  <label className="avatarSizeCtl">
+                    <span className="fieldLabel">大小 {styles[i].size}%</span>
+                    <input
+                      type="range"
+                      min={20}
+                      max={100}
+                      step={1}
+                      value={styles[i].size}
+                      onChange={(e) => patchStyle(i, { size: Number(e.target.value) })}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="uploadRow">
+          <UploadButton
+            api={api}
+            folder={ASSET_FOLDERS.avatar}
+            label="上传照片"
+            onUploaded={(p) => commit([...avatars, p], [...styles, normAvatarStyle(undefined)])}
+          />
+        </div>
+      </div>
+      <div className="editorField">
+        <span className="fieldLabel">背景装饰图（铺满照片区底部，圆/方头像空出的地方露出它）</span>
+        <div className="uploadRow">
+          {backdrop ? <img className="uploadPreview" src={assetUrl(backdrop)} alt="" /> : <span className="fieldHint">未设置</span>}
+          <UploadButton api={api} folder={ASSET_FOLDERS.avatar} label="上传背景" onUploaded={setBackdrop} />
+          {backdrop && (
+            <button type="button" className="compactButton" onClick={() => setBackdrop('')}>
+              <X size={14} /> 清除背景
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="fieldHint">
+        铺满＝照片按 4:5 撑满画框（原样式）；圆形/方形＝小头像，可调大小并在左栏直接拖动摆放。访客点击照片区查看大图；上传归档到
+        /assets/{ASSET_FOLDERS.avatar}/
+      </p>
     </>
   );
 }

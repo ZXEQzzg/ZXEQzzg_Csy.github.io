@@ -54,7 +54,7 @@ import {
   type TickerItem,
   type TimelineProject,
 } from './data/siteContent';
-import { assetUrl, makeLocalizedText } from './utils/editorUtils';
+import { assetUrl, makeLocalizedText, normAvatarStyle } from './utils/editorUtils';
 import {
   ASSET_FOLDERS,
   AddGhost,
@@ -254,6 +254,8 @@ function migrateContent(parsed: SiteContent): SiteContent {
     if (typeof content.profile.mark !== 'string') content.profile.mark = 'AI';
     if (typeof content.profile.siteTitle !== 'string') content.profile.siteTitle = 'ZXEQzzg Csy Portfolio';
     if (typeof content.profile.heroHeight !== 'number') content.profile.heroHeight = 0;
+    if (!Array.isArray(content.profile.avatarStyles)) content.profile.avatarStyles = [];
+    if (typeof content.profile.photoBackdrop !== 'string') content.profile.photoBackdrop = '';
     const r = content.profile.resume;
     content.profile.resume = {
       images: Array.isArray(r?.images) ? r.images : [],
@@ -429,25 +431,32 @@ function useActiveSection(ids: SectionKey[]): string {
   return active;
 }
 
-// 进场渐显：仅公开页启用；编辑模式全部直接可见，避免打扰编辑
+// 进场渐显：仅公开页启用；编辑模式全部直接可见，避免打扰编辑。
+// ⚠️ 标记必须用 data 属性而非 classList：这些节点的 className 由 React 管理，
+// 任何触发 className 重写的 setState（如折叠切换）都会把命令式加上的 'in' 类抹掉，
+// 板块退回「进场前」的透明态且 IO 已 unobserve，只能刷新恢复。
+// React 更新不会碰它不认识的 data 属性，data-in 可安全存活。
 function useReveal(enabled: boolean) {
   useEffect(() => {
     const nodes = Array.from(document.querySelectorAll<HTMLElement>('.reveal'));
+    const markIn = (el: HTMLElement) => {
+      el.dataset.in = '1';
+    };
     if (!enabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      nodes.forEach((el) => el.classList.add('in'));
+      nodes.forEach(markIn);
       return;
     }
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
           if (e.isIntersecting) {
-            e.target.classList.add('in');
+            markIn(e.target as HTMLElement);
             io.unobserve(e.target);
           }
         }),
       { rootMargin: '0px 0px -6% 0px', threshold: 0.04 }
     );
-    nodes.filter((el) => !el.classList.contains('in')).forEach((el) => io.observe(el));
+    nodes.filter((el) => el.dataset.in !== '1').forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [enabled]);
 }
@@ -788,10 +797,15 @@ function Portfolio({
   );
 }
 
-// ===== 左栏个人照片轮播（多张：箭头/滑动切换，公开页点击看大图） =====
+// ===== 左栏个人照片轮播 =====
+// 多张：箭头/滑动切换，公开页点击看大图。每张可选形状（铺满/圆形/方形）；
+// 圆/方为小于画框的头像，编辑态可直接按住拖动摆位置（avatarStyles.pos），
+// 空出的区域显示背景装饰图（photoBackdrop）。
 function ProfilePhotos({ content, onOpen }: { content: SiteContent; onOpen: (images: string[], index: number) => void }) {
   const edit = useEdit();
   const avatars = (content.profile.avatars ?? (content.profile.avatar ? [content.profile.avatar] : [])).filter(Boolean);
+  const styles = avatars.map((_, i) => normAvatarStyle(content.profile.avatarStyles?.[i]));
+  const backdrop = content.profile.photoBackdrop ?? '';
   const count = avatars.length;
   const [idx, setIdx] = useState(0);
   const cur = count ? Math.min(idx, count - 1) : 0;
@@ -800,11 +814,59 @@ function ProfilePhotos({ content, onOpen }: { content: SiteContent; onOpen: (ima
 
   const go = (delta: number) => setIdx((cur + delta + count) % count);
 
+  // 编辑态按住圆/方头像拖动摆位置：实时改 left/top，松手才提交 avatarStyles[i].pos
+  const dragAvatar = (e: ReactPointerEvent<HTMLImageElement>, i: number) => {
+    if (!edit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const img = e.currentTarget;
+    const cell = img.parentElement;
+    if (!cell) return;
+    const rect = cell.getBoundingClientRect();
+    const [sx0, sy0] = styles[i].pos.split(' ').map(Number);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let latest = { x: sx0, y: sy0 };
+    let moved = false;
+    img.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      moved = true;
+      const c = (n: number) => Math.min(100, Math.max(0, Math.round(n * 10) / 10));
+      latest = {
+        x: c(sx0 + ((ev.clientX - startX) / Math.max(1, rect.width)) * 100),
+        y: c(sy0 + ((ev.clientY - startY) / Math.max(1, rect.height)) * 100),
+      };
+      img.style.left = `${latest.x}%`;
+      img.style.top = `${latest.y}%`;
+    };
+    const onUp = () => {
+      img.removeEventListener('pointermove', onMove);
+      img.removeEventListener('pointerup', onUp);
+      img.removeEventListener('pointercancel', onUp);
+      if (moved) {
+        suppressClick.current = true;
+        edit.set((c) => {
+          const list = (c.profile.avatars ?? []).map((_, x) => normAvatarStyle(c.profile.avatarStyles?.[x]));
+          return {
+            ...c,
+            profile: {
+              ...c.profile,
+              avatarStyles: list.map((s, si) => (si === i ? { ...s, pos: `${latest.x} ${latest.y}` } : s)),
+            },
+          };
+        });
+      }
+    };
+    img.addEventListener('pointermove', onMove);
+    img.addEventListener('pointerup', onUp);
+    img.addEventListener('pointercancel', onUp);
+  };
+
   return (
     <div
-      className={cx('profilePhoto', edit && 'canEdit', count > 0 && 'hasPhoto')}
+      className={cx('profilePhoto', edit && 'canEdit', (count > 0 || Boolean(backdrop)) && 'hasPhoto')}
       role="button"
-      title={edit ? '管理个人照片' : count ? '查看大图' : undefined}
+      title={edit ? '管理个人照片（圆/方头像可直接拖动摆位置）' : count ? '查看大图' : undefined}
       onClick={() => {
         if (suppressClick.current) {
           suppressClick.current = false;
@@ -827,12 +889,37 @@ function ProfilePhotos({ content, onOpen }: { content: SiteContent; onOpen: (ima
         }
       }}
     >
-      {count > 0 ? (
+      {count > 0 || backdrop ? (
         <div className="photoViewport">
+          {backdrop && <img className="photoBackdrop" src={assetUrl(backdrop)} alt="" draggable={false} />}
           <div className="photoTrack" style={{ transform: `translateX(-${cur * 100}%)` }}>
-            {avatars.map((a, i) => (
-              <img key={`${a}-${i}`} src={assetUrl(a)} alt={`个人照片 ${i + 1}`} loading={i === 0 ? undefined : 'lazy'} draggable={false} />
-            ))}
+            {avatars.map((a, i) => {
+              const st = styles[i];
+              const [px, py] = st.pos.split(' ').map(Number);
+              return (
+                <div className="photoCell" key={`${a}-${i}`}>
+                  {st.shape === 'full' ? (
+                    <img
+                      className="photoFull"
+                      src={assetUrl(a)}
+                      alt={`个人照片 ${i + 1}`}
+                      loading={i === 0 ? undefined : 'lazy'}
+                      draggable={false}
+                    />
+                  ) : (
+                    <img
+                      className={cx('photoShaped', st.shape)}
+                      src={assetUrl(a)}
+                      alt={`个人照片 ${i + 1}`}
+                      loading={i === 0 ? undefined : 'lazy'}
+                      draggable={false}
+                      style={{ left: `${px}%`, top: `${py}%`, width: `${st.size}%` }}
+                      onPointerDown={(e) => dragAvatar(e, i)}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
