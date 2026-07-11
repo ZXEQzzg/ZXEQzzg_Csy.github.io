@@ -189,20 +189,21 @@ function UIText({
   );
 }
 
-// 板块外壳：编号按钮可折叠/展开（折叠状态记在本浏览器 localStorage）
+// 板块外壳：标题行右侧的箭头按钮折叠/展开（折叠状态记在本浏览器 localStorage）。
+// 收起用 display:none 直接切换——此前的 grid-rows 动画在线上出现内容无法恢复的问题，
+// 稳定优先。
 function CollapsibleSection({
   id,
-  index,
   icon,
   titleNode,
   children,
 }: {
   id: SectionKey;
-  index: number;
   icon: ReactNode;
   titleNode: ReactNode;
   children: ReactNode;
 }) {
+  const secRef = useRef<HTMLElement | null>(null);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return window.localStorage.getItem(`zx-sec-collapsed:${id}`) === '1';
@@ -210,26 +211,21 @@ function CollapsibleSection({
       return false;
     }
   });
-  // overflow:hidden 只在折叠/动画期间挂上：常态会把卡片阴影裁出硬边
-  const [animating, setAnimating] = useState(false);
-  const animTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(animTimer.current), []);
   const toggle = () => {
-    setAnimating(true);
-    window.clearTimeout(animTimer.current);
-    animTimer.current = window.setTimeout(() => setAnimating(false), 550); // transitionend 的兜底
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        window.localStorage.setItem(`zx-sec-collapsed:${id}`, next ? '1' : '0');
-      } catch {
-        // 隐私模式等场景写不进去也不影响本次会话
-      }
-      return next;
-    });
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(`zx-sec-collapsed:${id}`, next ? '1' : '0');
+    } catch {
+      // 隐私模式等场景写不进去也不影响本次会话
+    }
+    if (next) {
+      // 收起一大段内容后页面高度骤减，视口可能落到别处，把板块标题拉回可视范围
+      window.requestAnimationFrame(() => secRef.current?.scrollIntoView({ block: 'nearest' }));
+    }
   };
   return (
-    <section id={id} className={cx('moduleSection', 'reveal', collapsed && 'secCollapsed')}>
+    <section id={id} ref={secRef} className={cx('moduleSection', 'reveal', collapsed && 'secCollapsed')}>
       <div className="sectionHeading">
         <span className="headingIcon">{icon}</span>
         {titleNode}
@@ -241,18 +237,10 @@ function CollapsibleSection({
           aria-expanded={!collapsed}
           title={collapsed ? '展开该板块' : '折叠该板块'}
         >
-          <span className="secIndex">{String(index).padStart(2, '0')}</span>
-          <ChevronDown size={13} className="secChevron" aria-hidden="true" />
+          <ChevronDown size={15} className="secChevron" aria-hidden="true" />
         </button>
       </div>
-      <div
-        className={cx('secBody', (collapsed || animating) && 'clipped')}
-        onTransitionEnd={(e) => {
-          if (e.propertyName === 'grid-template-rows') setAnimating(false);
-        }}
-      >
-        <div className="secBodyInner">{children}</div>
-      </div>
+      <div className="secBody">{children}</div>
     </section>
   );
 }
@@ -764,11 +752,11 @@ function Portfolio({
             <ExperienceSection content={content} locale={locale} onOpenImages={openLightbox} />
             <GallerySection content={content} locale={locale} onOpenModal={setGalleryModalId} />
 
-            <CollapsibleSection id="major" index={4} icon={<GraduationCap size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="major" />}>
+            <CollapsibleSection id="major" icon={<GraduationCap size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="major" />}>
               <InfoGrid modules={content.major} locale={locale} listKey="major" addLabel="添加专业模块" onOpenImages={openLightbox} />
             </CollapsibleSection>
 
-            <CollapsibleSection id="courses" index={5} icon={<BookOpen size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="courses" />}>
+            <CollapsibleSection id="courses" icon={<BookOpen size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="courses" />}>
               <InfoGrid modules={content.courses} locale={locale} listKey="courses" addLabel="添加课程" onOpenImages={openLightbox} />
             </CollapsibleSection>
 
@@ -898,9 +886,8 @@ const defaultTickerLabel: LocalizedText = { zh: '近期内容', en: 'Recent', ko
 
 const clampTickerH = (v: unknown) => Math.min(360, Math.max(36, Math.round(Number(v)) || 72));
 
-// 配图放大到该高度后条目切为「图上字下」的堆叠布局
-const TICKER_STACK_AT = 96;
-const tickerStacked = (t: TickerItem) => Boolean(t.image) && clampTickerH(t.imageHeight) >= TICKER_STACK_AT;
+// 带配图的条目一律「图上字下」堆叠（不设高度阈值——默认 72px 也堆叠）
+const tickerStacked = (t: TickerItem) => Boolean(t.image);
 
 // 条目配图缩略：下缘拖拽调高，角标 × 移除
 function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial<TickerItem>) => void }) {
@@ -1066,7 +1053,6 @@ function SkillsSection({ content, locale }: { content: SiteContent; locale: Loca
   return (
     <CollapsibleSection
       id="skills"
-      index={1}
       icon={<BookOpen size={17} />}
       titleNode={
         <LT
@@ -1165,7 +1151,7 @@ function ExperienceSection({
   const edit = useEdit();
   const projects = content.timelineProjects;
   return (
-    <CollapsibleSection id="experience" index={2} icon={<BriefcaseBusiness size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="experience" />}>
+    <CollapsibleSection id="experience" icon={<BriefcaseBusiness size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="experience" />}>
       <div className="experienceList">
         {projects.map((project, i) => (
           <TimelineProjectCard
@@ -1437,7 +1423,7 @@ function GallerySection({
   // 编辑态显示全部（隐藏的半透明可复原）；公开页过滤掉 hidden
   const projects = edit ? content.galleryProjects : content.galleryProjects.filter((p) => p.hidden !== true);
   return (
-    <CollapsibleSection id="gallery" index={3} icon={<Sparkles size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="gallery" />}>
+    <CollapsibleSection id="gallery" icon={<Sparkles size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="gallery" />}>
       <div className="academicGallery">
         {projects.map((project, i) => (
           <GalleryCard
@@ -1692,7 +1678,7 @@ function ResearchSection({
   const items = content.recentResearch;
   if (!edit && items.length === 0) return null;
   return (
-    <CollapsibleSection id="research" index={6} icon={<FlaskConical size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="research" />}>
+    <CollapsibleSection id="research" icon={<FlaskConical size={17} />} titleNode={<SectionTitleLT content={content} locale={locale} k="research" />}>
       <div className="researchGrid">
         {items.map((item, i) => (
           <ResearchCard key={item.id} item={item} index={i} total={items.length} locale={locale} onOpenImages={onOpenImages} />

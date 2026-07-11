@@ -1164,6 +1164,9 @@ a.contactRow:hover {
 }
 
 .pillChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 5px;
 }
 
@@ -2899,28 +2902,9 @@ input[type='range'] {
   transform: rotate(-90deg);
 }
 
-.secBody {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.secBodyInner {
-  min-height: 0;
-}
-
-/* overflow 只在折叠/动画期间裁剪：常态保持可见，避免把卡片阴影裁出硬边 */
-.secBody.clipped > .secBodyInner {
-  overflow: hidden;
-}
-
+/* 收起 = 直接不渲染内容区（display:none 最稳，不做高度动画） */
 .secCollapsed .secBody {
-  grid-template-rows: 0fr;
-}
-
-.secCollapsed .secBodyInner {
-  visibility: hidden;
-  transition: visibility 0s linear 0.36s;
+  display: none;
 }
 
 /* ==========================================================================
@@ -3100,4 +3084,11 @@ body[data-editing] .galleryMore {
   margin-top: 4px;
   padding-top: 5px;
   border-top: 1px solid var(--soft);
+}
+
+/* 个人介绍高亮引用条：展示页与编辑页圆角一致
+   （编辑态此前被 body[data-editing] .editable 的 6px 全角盖住，公开页左侧是直角） */
+.introBand .research,
+body[data-editing] .introBand .research {
+  border-radius: 10px;
 }
