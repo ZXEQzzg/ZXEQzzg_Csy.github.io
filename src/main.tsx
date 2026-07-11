@@ -478,7 +478,7 @@ function Portfolio({
   animate?: boolean;
 }) {
   const edit = useEdit();
-  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number; captions?: string[] } | null>(null);
   const [galleryModalId, setGalleryModalId] = useState<string | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const [heroBadge, setHeroBadge] = useState<number | null>(null);
@@ -490,7 +490,7 @@ function Portfolio({
   const activeSection = useActiveSection(sections);
   useReveal(animate);
 
-  const openLightbox = (images: string[], index: number) => setLightbox({ images, index });
+  const openLightbox = (images: string[], index: number, captions?: string[]) => setLightbox({ images, index, captions });
   const galleryProject = galleryModalId ? content.galleryProjects.find((p) => p.id === galleryModalId) ?? null : null;
 
   return (
@@ -728,7 +728,7 @@ function Portfolio({
                 placeholder="研究方向"
                 onChange={(v) => edit?.set((c) => ({ ...c, profile: { ...c.profile, research: setLT(c.profile.research, locale, v) } }))}
               />
-              <TickerStrip content={content} locale={locale} />
+              <TickerStrip content={content} locale={locale} onOpenImages={openLightbox} />
               {edit && (
                 <span
                   className="resizeHandle heroResize"
@@ -780,8 +780,9 @@ function Portfolio({
         <Lightbox
           images={lightbox.images}
           index={lightbox.index}
+          captions={lightbox.captions}
           onClose={() => setLightbox(null)}
-          onIndex={(index) => setLightbox({ images: lightbox.images, index })}
+          onIndex={(index) => setLightbox({ ...lightbox, index })}
         />
       )}
       {galleryProject && (
@@ -977,7 +978,15 @@ const clampTickerH = (v: unknown) => Math.min(360, Math.max(36, Math.round(Numbe
 const tickerStacked = (t: TickerItem) => Boolean(t.image);
 
 // 条目配图缩略：下缘拖拽调高，角标 × 移除
-function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial<TickerItem>) => void }) {
+function TickerThumb({
+  item,
+  onPatch,
+  onZoom,
+}: {
+  item: TickerItem;
+  onPatch: (p: Partial<TickerItem>) => void;
+  onZoom?: () => void;
+}) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [hBadge, setHBadge] = useState<number | null>(null);
   const height = clampTickerH(item.imageHeight);
@@ -1012,7 +1021,18 @@ function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial
 
   return (
     <span className="tickerThumb">
-      <img ref={imgRef} src={assetUrl(item.image ?? '')} alt="" style={{ height }} draggable={false} />
+      <img
+        ref={imgRef}
+        src={assetUrl(item.image ?? '')}
+        alt=""
+        style={{ height }}
+        draggable={false}
+        title="点击放大预览"
+        onClick={(e) => {
+          e.stopPropagation();
+          onZoom?.();
+        }}
+      />
       <span className="tickerThumbGrip" title="拖动调整图片大小" onPointerDown={startDrag} />
       <button
         type="button"
@@ -1031,7 +1051,15 @@ function TickerThumb({ item, onPatch }: { item: TickerItem; onPatch: (p: Partial
   );
 }
 
-function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale }) {
+function TickerStrip({
+  content,
+  locale,
+  onOpenImages,
+}: {
+  content: SiteContent;
+  locale: Locale;
+  onOpenImages: (images: string[], index: number, captions?: string[]) => void;
+}) {
   const edit = useEdit();
   const items = content.profile.ticker ?? [];
   const label = content.profile.tickerLabel ?? defaultTickerLabel;
@@ -1039,6 +1067,17 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
 
   const setTicker = (next: TickerItem[]) => edit?.set((c) => ({ ...c, profile: { ...c.profile, ticker: next } }));
   const addItem = (list: TickerItem[]) => [...list, { id: `ticker-${Date.now()}`, text: makeLocalizedText('') }];
+
+  // 点图放大：弹窗里可左右翻所有带图条目，文字作为说明显示在大图下方
+  const openZoom = (t: TickerItem) => {
+    const withImg = items.filter((x) => x.image);
+    const zi = withImg.findIndex((x) => x.id === t.id);
+    onOpenImages(
+      withImg.map((x) => x.image!),
+      Math.max(0, zi),
+      withImg.map((x) => x.text[locale])
+    );
+  };
 
   const labelNode = (
     <span className="tickerLabel">
@@ -1064,7 +1103,7 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
             const patchItem = (p: Partial<TickerItem>) => setTicker(items.map((x) => (x.id === t.id ? { ...x, ...p } : x)));
             return (
               <span className={cx('tickerItem', t.image && 'withImg', tickerStacked(t) && 'stacked')} key={`${edit.session}:${locale}:${t.id}`}>
-                {t.image ? <TickerThumb item={t} onPatch={patchItem} /> : <span className="tickerDot" />}
+                {t.image ? <TickerThumb item={t} onPatch={patchItem} onZoom={() => openZoom(t)} /> : <span className="tickerDot" />}
                 <EditableText
                   value={t.text[locale]}
                   placeholder="内容"
@@ -1110,7 +1149,15 @@ function TickerStrip({ content, locale }: { content: SiteContent; locale: Locale
           {loop.map((t, i) => (
             <span className={cx('tickerItem', t.image && 'withImg', tickerStacked(t) && 'stacked')} key={`${t.id}-${i}`}>
               {t.image ? (
-                <img src={assetUrl(t.image)} alt="" style={{ height: clampTickerH(t.imageHeight) }} loading="lazy" draggable={false} />
+                <img
+                  src={assetUrl(t.image)}
+                  alt=""
+                  style={{ height: clampTickerH(t.imageHeight) }}
+                  loading="lazy"
+                  draggable={false}
+                  title="点击放大"
+                  onClick={() => openZoom(t)}
+                />
               ) : (
                 <span className="tickerDot" />
               )}
@@ -1417,11 +1464,14 @@ function ProjectImageStrip({
 function Lightbox({
   images,
   index,
+  captions,
   onClose,
   onIndex,
 }: {
   images: string[];
   index: number;
+  /** 与 images 对应的说明文字（HTML），显示在大图下方（如近期内容的条目文字） */
+  captions?: string[];
   onClose: () => void;
   onIndex: (index: number) => void;
 }) {
@@ -1459,6 +1509,9 @@ function Lightbox({
       )}
       <figure className="lightboxStage" onClick={(e) => e.stopPropagation()}>
         <img src={assetUrl(images[index])} alt={`图片 ${index + 1}`} />
+        {captions && plainText(captions[index] ?? '').trim() !== '' && (
+          <RichText as="p" className="lightboxCaption" text={captions[index]} />
+        )}
         {count > 1 && (
           <figcaption className="lightboxCount">
             {index + 1} / {count}

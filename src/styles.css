@@ -3182,3 +3182,19 @@ body[data-editing] .introBand .research {
 .avatarSizeCtl .fieldLabel {
   margin-bottom: 2px;
 }
+
+/* 近期内容配图可点击放大（公开页与编辑态都支持） */
+.tickerItem > img,
+.tickerThumb img {
+  cursor: zoom-in;
+}
+
+/* 放大后条目文字显示在大图下方 */
+.lightboxCaption {
+  margin: 0;
+  max-width: min(720px, 90vw);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  text-align: center;
+}
