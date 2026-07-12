@@ -2998,6 +2998,12 @@ input[type='range'] {
   max-width: min(540px, 74vw);
 }
 
+/* 竖图（窄于文字）在堆叠卡里水平居中 */
+.tickerItem.stacked > img,
+.tickerItem.stacked .tickerThumb {
+  align-self: center;
+}
+
 .tickerItem.stacked > span:not(.tickerDot):not(.tickerThumb) {
   padding: 0 5px;
   line-height: 1.5;
