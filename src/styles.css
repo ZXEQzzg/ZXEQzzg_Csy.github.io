@@ -57,9 +57,9 @@ body {
   /* 第一层留给主题花纹（--pattern，默认无；Claude 主题用平铺 SVG 小花） */
   background-image:
     var(--pattern, none),
-    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 30rem),
-    radial-gradient(circle at 94% 16%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 32rem),
-    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent-3) 9%, transparent), transparent 34rem);
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--accent) var(--glow1, 13%), transparent), transparent 30rem),
+    radial-gradient(circle at 94% 16%, color-mix(in srgb, var(--accent-2) var(--glow2, 11%), transparent), transparent 32rem),
+    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent-3) var(--glow3, 9%), transparent), transparent 34rem);
   background-size: var(--pattern-size, auto), auto, auto, auto;
   color: var(--text);
 }
@@ -3209,96 +3209,130 @@ body[data-editing] .introBand .research {
 }
 
 /* ==========================================================================
-   站点主题色 data-palette（编辑页顶部选择、随发布对访客生效；每套均含
-   深/浅双版，与右上角明暗切换叠加。键名与 editorUtils.PALETTE_KEYS 一致）
+   站点主题色 data-palette（编辑页顶部选择、随发布对访客生效；每套含深/浅双版，
+   与明暗切换叠加。撞色设计：accent/accent-2/accent-3 为三个不同色相，边框
+   （--soft）、卡片底（--panel）、背景光斑（--glow*）一并染色，让颜色进入结构。
+   键名与 editorUtils.PALETTE_KEYS 一致）
    ========================================================================== */
-/* 玫瑰 · 深红+白 */
+/* 玫瑰 · 玫红×翠绿×白（红绿撞色，浅色近白底） */
 :root[data-palette='rose'] {
-  --bg: #150a0e;
-  --bg-elevated: #1e1014;
-  --accent: #ff5c7f;
-  --accent-2: #f0b8c4;
-  --accent-3: #d98ba0;
+  --bg: #1c0d16;
+  --bg-elevated: #271220;
+  --accent: #ff4d79;
+  --accent-2: #35d0a5;
+  --accent-3: #ffc94d;
+  --panel: rgba(255, 77, 121, 0.09);
+  --panel-strong: rgba(255, 77, 121, 0.17);
+  --soft: rgba(255, 128, 160, 0.26);
+  --glow1: 22%;
+  --glow2: 16%;
+  --glow3: 12%;
 }
 
 :root[data-palette='rose'][data-theme='light'] {
-  --bg: #fbf5f6;
-  --bg-elevated: #fffdfd;
-  --accent: #b3264a;
-  --accent-2: #d4667f;
-  --accent-3: #a34760;
+  --bg: #fffbfc;
+  --bg-elevated: #ffffff;
+  --accent: #d81b4f;
+  --accent-2: #0f9d76;
+  --accent-3: #d9930f;
+  --panel: rgba(216, 27, 79, 0.055);
+  --panel-strong: rgba(216, 27, 79, 0.11);
+  --soft: rgba(216, 27, 79, 0.2);
+  --glow1: 15%;
+  --glow2: 13%;
+  --glow3: 10%;
 }
 
-/* 青草 · 草绿+淡蓝 */
+/* 青草 · 草绿×晴蓝×柠檬（绿蓝撞色，底色偏淡蓝） */
 :root[data-palette='meadow'] {
-  --bg: #0a130d;
-  --bg-elevated: #101b12;
-  --accent: #6fd785;
-  --accent-2: #8fd0ff;
-  --accent-3: #a8e6b8;
+  --bg: #0b1626;
+  --bg-elevated: #101e33;
+  --accent: #4ade6b;
+  --accent-2: #4da3ff;
+  --accent-3: #f2e04d;
+  --panel: rgba(77, 163, 255, 0.09);
+  --panel-strong: rgba(77, 163, 255, 0.17);
+  --soft: rgba(120, 200, 150, 0.26);
+  --glow1: 22%;
+  --glow2: 18%;
+  --glow3: 10%;
 }
 
 :root[data-palette='meadow'][data-theme='light'] {
-  --bg: #f2f8f2;
-  --bg-elevated: #fbfefb;
-  --accent: #2f8f3e;
-  --accent-2: #3f97c9;
-  --accent-3: #5cab6c;
+  --bg: #edf6fd;
+  --bg-elevated: #fbfeff;
+  --accent: #17963c;
+  --accent-2: #156fd0;
+  --accent-3: #b08d00;
+  --panel: rgba(23, 150, 60, 0.06);
+  --panel-strong: rgba(21, 111, 208, 0.11);
+  --soft: rgba(21, 111, 208, 0.22);
+  --glow1: 17%;
+  --glow2: 16%;
+  --glow3: 9%;
 }
 
-/* Claude · 淡黄奶油底+微微花纹 */
+/* Claude · 淡黄底×赤陶×黛蓝，笔墨梅枝图案 */
 :root[data-palette='claude'] {
-  --bg: #171310;
-  --bg-elevated: #201a14;
-  --accent: #e08a68;
-  --accent-2: #e3c078;
-  --accent-3: #aab87a;
-  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='%23f0e2c0' fill-opacity='.05'%3E%3Ccircle cx='36' cy='48' r='6.2'/%3E%3Ccircle cx='26.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='30.1' cy='29.9' r='6.2'/%3E%3Ccircle cx='41.9' cy='29.9' r='6.2'/%3E%3Ccircle cx='45.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='110' cy='116' r='6.2'/%3E%3Ccircle cx='100.5' cy='109.1' r='6.2'/%3E%3Ccircle cx='104.1' cy='97.9' r='6.2'/%3E%3Ccircle cx='115.9' cy='97.9' r='6.2'/%3E%3Ccircle cx='119.5' cy='109.1' r='6.2'/%3E%3C/g%3E%3Cg fill='%23f0e2c0' fill-opacity='.09'%3E%3Ccircle cx='36' cy='38' r='3.4'/%3E%3Ccircle cx='110' cy='106' r='3.4'/%3E%3Ccircle cx='118' cy='32' r='2'/%3E%3Ccircle cx='28' cy='118' r='2'/%3E%3C/g%3E%3C/svg%3E");
-  --pattern-size: 150px 150px;
+  --bg: #241b10;
+  --bg-elevated: #2e2315;
+  --accent: #f0915e;
+  --accent-2: #8fc1e3;
+  --accent-3: #c9b458;
+  --panel: rgba(240, 145, 94, 0.09);
+  --panel-strong: rgba(240, 145, 94, 0.16);
+  --soft: rgba(232, 216, 182, 0.24);
+  --glow1: 18%;
+  --glow2: 12%;
+  --glow3: 10%;
+  --pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='460'%20height='460'%20viewBox='0%200%20460%20460'%3E%3Cpath%20d='M14%20452%20C%2088%20402%20148%20384%20204%20332%20C%20260%20280%20298%20242%20326%20184%20C%20342%20150%20350%20120%20357%2086'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='6.5'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M204%20332%20C%20260%20280%20298%20242%20326%20184%20C%20342%20150%20350%20120%20357%2086'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='3.4'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M206%20330%20C%20234%20320%20262%20316%20294%20320'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='2.8'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M300%20240%20C%20324%20226%20346%20222%20372%20226'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='2.3'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M150%20384%20C%20170%20366%20176%20348%20172%20326'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='2.3'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M340%20152%20C%20356%20144%20372%20142%20390%20146'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='1.8'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Cpath%20d='M40%20118%20C%2066%20100%2092%2092%20124%2094'%20fill='none'%20stroke='%23e8d8b6'%20stroke-width='2.6'%20stroke-linecap='round'%20opacity='0.14'/%3E%3Ccircle%20cx='364.4'%20cy='85.6'%20r='6.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='357.8'%20cy='91.6'%20r='6.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='350.1'%20cy='87.1'%20r='6.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='351.9'%20cy='78.4'%20r='6.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='360.8'%20cy='77.4'%20r='6.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='357'%20cy='84'%20r='2.6'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='359.8'%20cy='87.1'%20r='1.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='354.9'%20cy='87.6'%20r='1.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='352.9'%20cy='83.1'%20r='1.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='356.6'%20cy='79.8'%20r='1.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='360.8'%20cy='82.3'%20r='1.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='299.4'%20cy='322.5'%20r='6.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='291.4'%20cy='324.5'%20r='6.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='287.0'%20cy='317.5'%20r='6.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='292.3'%20cy='311.2'%20r='6.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='299.9'%20cy='314.3'%20r='6.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='294'%20cy='318'%20r='2.4'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='294.9'%20cy='321.7'%20r='1.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='290.7'%20cy='320.0'%20r='1.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='291.0'%20cy='315.5'%20r='1.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='295.4'%20cy='314.4'%20r='1.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='297.9'%20cy='318.3'%20r='1.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='374.1'%20cy='229.7'%20r='5.5'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='367.2'%20cy='227.7'%20r='5.5'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='367.0'%20cy='220.6'%20r='5.5'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='373.7'%20cy='218.2'%20r='5.5'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='378.1'%20cy='223.8'%20r='5.5'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='372'%20cy='224'%20r='2.1'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='371.1'%20cy='227.2'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='368.6'%20cy='224.1'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='370.9'%20cy='220.8'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='374.6'%20cy='221.9'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='374.8'%20cy='225.9'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='178.5'%20cy='324.0'%20r='5.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='174.0'%20cy='330.1'%20r='5.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='166.8'%20cy='327.8'%20r='5.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='166.8'%20cy='320.2'%20r='5.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='174.0'%20cy='317.9'%20r='5.9'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='172'%20cy='324'%20r='2.2'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='174.9'%20cy='326.1'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='170.9'%20cy='327.4'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='168.4'%20cy='324.0'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='170.9'%20cy='320.6'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='174.9'%20cy='321.9'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='394.3'%20cy='150.0'%20r='4.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='389.4'%20cy='152.7'%20r='4.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='385.4'%20cy='148.9'%20r='4.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='387.7'%20cy='143.9'%20r='4.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='393.2'%20cy='144.6'%20r='4.3'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='390'%20cy='148'%20r='1.6'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='391.3'%20cy='150.3'%20r='0.7'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='388.2'%20cy='149.9'%20r='0.7'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='387.6'%20cy='146.9'%20r='0.7'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='390.3'%20cy='145.4'%20r='0.7'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='392.6'%20cy='147.5'%20r='0.7'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='127.4'%20cy='100.9'%20r='5.4'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='120.4'%20cy='100.7'%20r='5.4'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='118.4'%20cy='94.1'%20r='5.4'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='124.1'%20cy='90.1'%20r='5.4'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='129.7'%20cy='94.3'%20r='5.4'%20fill='%23e0805c'%20fill-opacity='0.30'/%3E%3Ccircle%20cx='124'%20cy='96'%20r='2.0'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='123.9'%20cy='99.3'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='120.9'%20cy='97.0'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='122.1'%20cy='93.3'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='126.0'%20cy='93.4'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='127.1'%20cy='97.1'%20r='0.9'%20fill='%23e8d8b6'%20fill-opacity='0.26'/%3E%3Ccircle%20cx='326'%20cy='186'%20r='3.6'%20fill='%23e0805c'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='246'%20cy='292'%20r='3.2'%20fill='%23e0805c'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='66'%20cy='106'%20r='2.8'%20fill='%23e0805c'%20fill-opacity='0.42'/%3E%3C/svg%3E");
+  --pattern-size: 460px 460px;
 }
 
 :root[data-palette='claude'][data-theme='light'] {
-  --bg: #f0eee5;
-  --bg-elevated: #faf9f3;
-  --accent: #c05f3c;
-  --accent-2: #a07d1c;
-  --accent-3: #74854b;
-  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='%23d97757' fill-opacity='.07'%3E%3Ccircle cx='36' cy='48' r='6.2'/%3E%3Ccircle cx='26.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='30.1' cy='29.9' r='6.2'/%3E%3Ccircle cx='41.9' cy='29.9' r='6.2'/%3E%3Ccircle cx='45.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='110' cy='116' r='6.2'/%3E%3Ccircle cx='100.5' cy='109.1' r='6.2'/%3E%3Ccircle cx='104.1' cy='97.9' r='6.2'/%3E%3Ccircle cx='115.9' cy='97.9' r='6.2'/%3E%3Ccircle cx='119.5' cy='109.1' r='6.2'/%3E%3C/g%3E%3Cg fill='%23d97757' fill-opacity='.12'%3E%3Ccircle cx='36' cy='38' r='3.4'/%3E%3Ccircle cx='110' cy='106' r='3.4'/%3E%3Ccircle cx='118' cy='32' r='2'/%3E%3Ccircle cx='28' cy='118' r='2'/%3E%3C/g%3E%3C/svg%3E");
-  --pattern-size: 150px 150px;
+  --bg: #f7f0da;
+  --bg-elevated: #fdf9ec;
+  --accent: #c2542a;
+  --accent-2: #34678f;
+  --accent-3: #77682a;
+  /* 卡片底提高不透明度：垫住底下的梅枝图案，保证正文可读 */
+  --panel: rgba(253, 249, 236, 0.8);
+  --panel-strong: rgba(250, 242, 220, 0.95);
+  --soft: rgba(122, 84, 44, 0.25);
+  --glow1: 12%;
+  --glow2: 9%;
+  --glow3: 8%;
+  --pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='460'%20height='460'%20viewBox='0%200%20460%20460'%3E%3Cpath%20d='M14%20452%20C%2088%20402%20148%20384%20204%20332%20C%20260%20280%20298%20242%20326%20184%20C%20342%20150%20350%20120%20357%2086'%20fill='none'%20stroke='%235c4632'%20stroke-width='6.5'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M204%20332%20C%20260%20280%20298%20242%20326%20184%20C%20342%20150%20350%20120%20357%2086'%20fill='none'%20stroke='%235c4632'%20stroke-width='3.4'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M206%20330%20C%20234%20320%20262%20316%20294%20320'%20fill='none'%20stroke='%235c4632'%20stroke-width='2.8'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M300%20240%20C%20324%20226%20346%20222%20372%20226'%20fill='none'%20stroke='%235c4632'%20stroke-width='2.3'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M150%20384%20C%20170%20366%20176%20348%20172%20326'%20fill='none'%20stroke='%235c4632'%20stroke-width='2.3'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M340%20152%20C%20356%20144%20372%20142%20390%20146'%20fill='none'%20stroke='%235c4632'%20stroke-width='1.8'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Cpath%20d='M40%20118%20C%2066%20100%2092%2092%20124%2094'%20fill='none'%20stroke='%235c4632'%20stroke-width='2.6'%20stroke-linecap='round'%20opacity='0.30'/%3E%3Ccircle%20cx='364.4'%20cy='85.6'%20r='6.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='357.8'%20cy='91.6'%20r='6.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='350.1'%20cy='87.1'%20r='6.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='351.9'%20cy='78.4'%20r='6.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='360.8'%20cy='77.4'%20r='6.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='357'%20cy='84'%20r='2.6'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='359.8'%20cy='87.1'%20r='1.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='354.9'%20cy='87.6'%20r='1.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='352.9'%20cy='83.1'%20r='1.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='356.6'%20cy='79.8'%20r='1.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='360.8'%20cy='82.3'%20r='1.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='299.4'%20cy='322.5'%20r='6.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='291.4'%20cy='324.5'%20r='6.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='287.0'%20cy='317.5'%20r='6.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='292.3'%20cy='311.2'%20r='6.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='299.9'%20cy='314.3'%20r='6.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='294'%20cy='318'%20r='2.4'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='294.9'%20cy='321.7'%20r='1.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='290.7'%20cy='320.0'%20r='1.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='291.0'%20cy='315.5'%20r='1.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='295.4'%20cy='314.4'%20r='1.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='297.9'%20cy='318.3'%20r='1.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='374.1'%20cy='229.7'%20r='5.5'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='367.2'%20cy='227.7'%20r='5.5'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='367.0'%20cy='220.6'%20r='5.5'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='373.7'%20cy='218.2'%20r='5.5'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='378.1'%20cy='223.8'%20r='5.5'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='372'%20cy='224'%20r='2.1'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='371.1'%20cy='227.2'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='368.6'%20cy='224.1'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='370.9'%20cy='220.8'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='374.6'%20cy='221.9'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='374.8'%20cy='225.9'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='178.5'%20cy='324.0'%20r='5.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='174.0'%20cy='330.1'%20r='5.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='166.8'%20cy='327.8'%20r='5.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='166.8'%20cy='320.2'%20r='5.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='174.0'%20cy='317.9'%20r='5.9'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='172'%20cy='324'%20r='2.2'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='174.9'%20cy='326.1'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='170.9'%20cy='327.4'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='168.4'%20cy='324.0'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='170.9'%20cy='320.6'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='174.9'%20cy='321.9'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='394.3'%20cy='150.0'%20r='4.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='389.4'%20cy='152.7'%20r='4.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='385.4'%20cy='148.9'%20r='4.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='387.7'%20cy='143.9'%20r='4.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='393.2'%20cy='144.6'%20r='4.3'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='390'%20cy='148'%20r='1.6'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='391.3'%20cy='150.3'%20r='0.7'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='388.2'%20cy='149.9'%20r='0.7'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='387.6'%20cy='146.9'%20r='0.7'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='390.3'%20cy='145.4'%20r='0.7'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='392.6'%20cy='147.5'%20r='0.7'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='127.4'%20cy='100.9'%20r='5.4'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='120.4'%20cy='100.7'%20r='5.4'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='118.4'%20cy='94.1'%20r='5.4'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='124.1'%20cy='90.1'%20r='5.4'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='129.7'%20cy='94.3'%20r='5.4'%20fill='%23c14b45'%20fill-opacity='0.42'/%3E%3Ccircle%20cx='124'%20cy='96'%20r='2.0'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='123.9'%20cy='99.3'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='120.9'%20cy='97.0'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='122.1'%20cy='93.3'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='126.0'%20cy='93.4'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='127.1'%20cy='97.1'%20r='0.9'%20fill='%235c4632'%20fill-opacity='0.40'/%3E%3Ccircle%20cx='326'%20cy='186'%20r='3.6'%20fill='%23c14b45'%20fill-opacity='0.54'/%3E%3Ccircle%20cx='246'%20cy='292'%20r='3.2'%20fill='%23c14b45'%20fill-opacity='0.54'/%3E%3Ccircle%20cx='66'%20cy='106'%20r='2.8'%20fill='%23c14b45'%20fill-opacity='0.54'/%3E%3C/svg%3E");
+  --pattern-size: 460px 460px;
 }
 
-/* 暮紫 · 紫罗兰+霞粉 */
-:root[data-palette='violet'] {
-  --bg: #100d1a;
-  --bg-elevated: #171226;
-  --accent: #a89bff;
-  --accent-2: #f0a6ca;
-  --accent-3: #67d7e0;
-}
-
-:root[data-palette='violet'][data-theme='light'] {
-  --bg: #f6f4fb;
-  --bg-elevated: #fdfcff;
-  --accent: #6a5cd8;
-  --accent-2: #c2559b;
-  --accent-3: #2f9aa8;
-}
-
-/* 落日 · 橘+暖金 */
+/* 落日 · 橘×青蓝（经典 orange×teal 撞色） */
 :root[data-palette='sunset'] {
-  --bg: #170f0b;
-  --bg-elevated: #211610;
-  --accent: #ff8a5c;
-  --accent-2: #ffc76b;
-  --accent-3: #d98cb3;
+  --bg: #1c1210;
+  --bg-elevated: #281812;
+  --accent: #ff7a3d;
+  --accent-2: #3ecfe0;
+  --accent-3: #ffc447;
+  --panel: rgba(255, 122, 61, 0.09);
+  --panel-strong: rgba(255, 122, 61, 0.17);
+  --soft: rgba(62, 207, 224, 0.24);
+  --glow1: 22%;
+  --glow2: 16%;
+  --glow3: 12%;
 }
 
 :root[data-palette='sunset'][data-theme='light'] {
-  --bg: #fdf7f0;
-  --bg-elevated: #fffdf9;
-  --accent: #d2591f;
-  --accent-2: #b07f18;
-  --accent-3: #b25784;
+  --bg: #fff7ee;
+  --bg-elevated: #fffdf8;
+  --accent: #e05a15;
+  --accent-2: #0f8fa3;
+  --accent-3: #c28a00;
+  --panel: rgba(224, 90, 21, 0.06);
+  --panel-strong: rgba(15, 143, 163, 0.11);
+  --soft: rgba(224, 90, 21, 0.22);
+  --glow1: 16%;
+  --glow2: 14%;
+  --glow3: 10%;
 }
 
 /* 顶部主题色选择器（编辑态） */

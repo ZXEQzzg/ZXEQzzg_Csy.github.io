@@ -8,7 +8,7 @@ export const validTone = (v: unknown): string => (typeof v === 'string' && (TONE
 
 // 站点主题色键（'' = 默认青金）。与 styles.css 的 :root[data-palette=*] 及
 // main.tsx 的 SITE_PALETTES 保持一致。
-export const PALETTE_KEYS = ['rose', 'meadow', 'claude', 'violet', 'sunset'] as const;
+export const PALETTE_KEYS = ['rose', 'meadow', 'claude', 'sunset'] as const;
 
 export const validPalette = (v: unknown): string =>
   typeof v === 'string' && (PALETTE_KEYS as readonly string[]).includes(v) ? v : '';

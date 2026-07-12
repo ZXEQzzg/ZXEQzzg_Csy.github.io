@@ -104,11 +104,10 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
 // PALETTE_KEYS 一致；a/b 仅用于选择器圆点预览
 const SITE_PALETTES: Array<{ key: string; label: string; a: string; b: string }> = [
   { key: '', label: '默认 · 青金', a: '#6fd7c6', b: '#f2c46d' },
-  { key: 'rose', label: '玫瑰 · 深红+白', a: '#bb2649', b: '#f7e3e8' },
-  { key: 'meadow', label: '青草 · 草绿+淡蓝', a: '#3e9e46', b: '#8fd0ff' },
-  { key: 'claude', label: 'Claude · 淡黄+花纹', a: '#d97757', b: '#f0eee5' },
-  { key: 'violet', label: '暮紫 · 紫罗兰+霞粉', a: '#a89bff', b: '#f0a6ca' },
-  { key: 'sunset', label: '落日 · 橘+暖金', a: '#ff8a5c', b: '#ffc76b' },
+  { key: 'rose', label: '玫瑰 · 玫红×翠绿×白', a: '#d81b4f', b: '#0f9d76' },
+  { key: 'meadow', label: '青草 · 草绿×晴蓝', a: '#17963c', b: '#4da3ff' },
+  { key: 'claude', label: 'Claude · 淡黄×赤陶 · 笔墨梅枝', a: '#c2542a', b: '#f7f0da' },
+  { key: 'sunset', label: '落日 · 橘×青蓝', a: '#ff7a3d', b: '#3ecfe0' },
 ];
 
 // 板块标题：优先用户在编辑器里改过的 sectionTitles，缺省回落到内置三语标题
