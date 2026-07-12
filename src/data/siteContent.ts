@@ -112,6 +112,7 @@ export type SiteContent = {
   recentResearch: ResearchItem[];
   sectionTitles?: Record<string, LocalizedText>;
   uiStrings?: Record<string, LocalizedText>;
+  palette?: string;
 };
 
 export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };

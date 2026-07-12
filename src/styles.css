@@ -53,11 +53,14 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background:
+  background-color: var(--bg);
+  /* 第一层留给主题花纹（--pattern，默认无；Claude 主题用平铺 SVG 小花） */
+  background-image:
+    var(--pattern, none),
     radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 30rem),
     radial-gradient(circle at 94% 16%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 32rem),
-    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent-3) 9%, transparent), transparent 34rem),
-    var(--bg);
+    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent-3) 9%, transparent), transparent 34rem);
+  background-size: var(--pattern-size, auto), auto, auto, auto;
   color: var(--text);
 }
 
@@ -3203,4 +3206,132 @@ body[data-editing] .introBand .research {
   font-size: 0.95rem;
   line-height: 1.65;
   text-align: center;
+}
+
+/* ==========================================================================
+   站点主题色 data-palette（编辑页顶部选择、随发布对访客生效；每套均含
+   深/浅双版，与右上角明暗切换叠加。键名与 editorUtils.PALETTE_KEYS 一致）
+   ========================================================================== */
+/* 玫瑰 · 深红+白 */
+:root[data-palette='rose'] {
+  --bg: #150a0e;
+  --bg-elevated: #1e1014;
+  --accent: #ff5c7f;
+  --accent-2: #f0b8c4;
+  --accent-3: #d98ba0;
+}
+
+:root[data-palette='rose'][data-theme='light'] {
+  --bg: #fbf5f6;
+  --bg-elevated: #fffdfd;
+  --accent: #b3264a;
+  --accent-2: #d4667f;
+  --accent-3: #a34760;
+}
+
+/* 青草 · 草绿+淡蓝 */
+:root[data-palette='meadow'] {
+  --bg: #0a130d;
+  --bg-elevated: #101b12;
+  --accent: #6fd785;
+  --accent-2: #8fd0ff;
+  --accent-3: #a8e6b8;
+}
+
+:root[data-palette='meadow'][data-theme='light'] {
+  --bg: #f2f8f2;
+  --bg-elevated: #fbfefb;
+  --accent: #2f8f3e;
+  --accent-2: #3f97c9;
+  --accent-3: #5cab6c;
+}
+
+/* Claude · 淡黄奶油底+微微花纹 */
+:root[data-palette='claude'] {
+  --bg: #171310;
+  --bg-elevated: #201a14;
+  --accent: #e08a68;
+  --accent-2: #e3c078;
+  --accent-3: #aab87a;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='%23f0e2c0' fill-opacity='.05'%3E%3Ccircle cx='36' cy='48' r='6.2'/%3E%3Ccircle cx='26.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='30.1' cy='29.9' r='6.2'/%3E%3Ccircle cx='41.9' cy='29.9' r='6.2'/%3E%3Ccircle cx='45.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='110' cy='116' r='6.2'/%3E%3Ccircle cx='100.5' cy='109.1' r='6.2'/%3E%3Ccircle cx='104.1' cy='97.9' r='6.2'/%3E%3Ccircle cx='115.9' cy='97.9' r='6.2'/%3E%3Ccircle cx='119.5' cy='109.1' r='6.2'/%3E%3C/g%3E%3Cg fill='%23f0e2c0' fill-opacity='.09'%3E%3Ccircle cx='36' cy='38' r='3.4'/%3E%3Ccircle cx='110' cy='106' r='3.4'/%3E%3Ccircle cx='118' cy='32' r='2'/%3E%3Ccircle cx='28' cy='118' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-size: 150px 150px;
+}
+
+:root[data-palette='claude'][data-theme='light'] {
+  --bg: #f0eee5;
+  --bg-elevated: #faf9f3;
+  --accent: #c05f3c;
+  --accent-2: #a07d1c;
+  --accent-3: #74854b;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='%23d97757' fill-opacity='.07'%3E%3Ccircle cx='36' cy='48' r='6.2'/%3E%3Ccircle cx='26.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='30.1' cy='29.9' r='6.2'/%3E%3Ccircle cx='41.9' cy='29.9' r='6.2'/%3E%3Ccircle cx='45.5' cy='41.1' r='6.2'/%3E%3Ccircle cx='110' cy='116' r='6.2'/%3E%3Ccircle cx='100.5' cy='109.1' r='6.2'/%3E%3Ccircle cx='104.1' cy='97.9' r='6.2'/%3E%3Ccircle cx='115.9' cy='97.9' r='6.2'/%3E%3Ccircle cx='119.5' cy='109.1' r='6.2'/%3E%3C/g%3E%3Cg fill='%23d97757' fill-opacity='.12'%3E%3Ccircle cx='36' cy='38' r='3.4'/%3E%3Ccircle cx='110' cy='106' r='3.4'/%3E%3Ccircle cx='118' cy='32' r='2'/%3E%3Ccircle cx='28' cy='118' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-size: 150px 150px;
+}
+
+/* 暮紫 · 紫罗兰+霞粉 */
+:root[data-palette='violet'] {
+  --bg: #100d1a;
+  --bg-elevated: #171226;
+  --accent: #a89bff;
+  --accent-2: #f0a6ca;
+  --accent-3: #67d7e0;
+}
+
+:root[data-palette='violet'][data-theme='light'] {
+  --bg: #f6f4fb;
+  --bg-elevated: #fdfcff;
+  --accent: #6a5cd8;
+  --accent-2: #c2559b;
+  --accent-3: #2f9aa8;
+}
+
+/* 落日 · 橘+暖金 */
+:root[data-palette='sunset'] {
+  --bg: #170f0b;
+  --bg-elevated: #211610;
+  --accent: #ff8a5c;
+  --accent-2: #ffc76b;
+  --accent-3: #d98cb3;
+}
+
+:root[data-palette='sunset'][data-theme='light'] {
+  --bg: #fdf7f0;
+  --bg-elevated: #fffdf9;
+  --accent: #d2591f;
+  --accent-2: #b07f18;
+  --accent-3: #b25784;
+}
+
+/* 顶部主题色选择器（编辑态） */
+.paletteDock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid var(--soft);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.paletteDock > svg {
+  margin-right: 2px;
+  color: var(--muted);
+}
+
+.paletteDot {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.paletteDot:hover {
+  transform: scale(1.18);
+}
+
+.paletteDot.on {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

@@ -6,6 +6,13 @@ export const TONE_KEYS = ['teal', 'gold', 'violet', 'rose', 'sky', 'mint', 'suns
 
 export const validTone = (v: unknown): string => (typeof v === 'string' && (TONE_KEYS as readonly string[]).includes(v) ? v : '');
 
+// 站点主题色键（'' = 默认青金）。与 styles.css 的 :root[data-palette=*] 及
+// main.tsx 的 SITE_PALETTES 保持一致。
+export const PALETTE_KEYS = ['rose', 'meadow', 'claude', 'violet', 'sunset'] as const;
+
+export const validPalette = (v: unknown): string =>
+  typeof v === 'string' && (PALETTE_KEYS as readonly string[]).includes(v) ? v : '';
+
 /** 图片位移 "x y"（object-position 百分比）规范化，非法回落居中 */
 export const normPos = (v: unknown): string => {
   if (typeof v !== 'string' || !v.trim()) return '50 50';
@@ -181,6 +188,7 @@ export function serializeSiteContent(data: SiteContent): string {
   lines.push(`  recentResearch: ResearchItem[];`);
   lines.push(`  sectionTitles?: Record<string, LocalizedText>;`);
   lines.push(`  uiStrings?: Record<string, LocalizedText>;`);
+  lines.push(`  palette?: string;`);
   lines.push(`};`);
   lines.push(``);
   lines.push(`export const localeLabels: Record<Locale, string> = { zh: '中', en: 'EN', ko: '한' };`);
@@ -341,6 +349,8 @@ export function serializeSiteContent(data: SiteContent): string {
     lines.push(`    ${JSON.stringify(key)}: ${genLT(lt)},`);
   }
   lines.push(`  },`);
+
+  lines.push(`  palette: ${q(validPalette(data.palette))},`);
 
   lines.push(`};`);
 

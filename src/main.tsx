@@ -31,6 +31,7 @@ import {
   Maximize2,
   MessageCircle,
   Moon,
+  Palette,
   PanelsTopLeft,
   Pencil,
   Phone,
@@ -54,7 +55,7 @@ import {
   type TickerItem,
   type TimelineProject,
 } from './data/siteContent';
-import { assetUrl, makeLocalizedText, normAvatarStyle } from './utils/editorUtils';
+import { assetUrl, makeLocalizedText, normAvatarStyle, validPalette } from './utils/editorUtils';
 import {
   ASSET_FOLDERS,
   AddGhost,
@@ -98,6 +99,17 @@ const sectionLabels: Record<SectionKey, Record<Locale, string>> = {
   courses: { zh: '课程介绍', en: 'Courses', ko: '수업' },
   research: { zh: '近期研究方向', en: 'Recent Research', ko: '최근 연구' },
 };
+
+// 站点主题色预设：键与 styles.css 的 :root[data-palette=*]、editorUtils 的
+// PALETTE_KEYS 一致；a/b 仅用于选择器圆点预览
+const SITE_PALETTES: Array<{ key: string; label: string; a: string; b: string }> = [
+  { key: '', label: '默认 · 青金', a: '#6fd7c6', b: '#f2c46d' },
+  { key: 'rose', label: '玫瑰 · 深红+白', a: '#bb2649', b: '#f7e3e8' },
+  { key: 'meadow', label: '青草 · 草绿+淡蓝', a: '#3e9e46', b: '#8fd0ff' },
+  { key: 'claude', label: 'Claude · 淡黄+花纹', a: '#d97757', b: '#f0eee5' },
+  { key: 'violet', label: '暮紫 · 紫罗兰+霞粉', a: '#a89bff', b: '#f0a6ca' },
+  { key: 'sunset', label: '落日 · 橘+暖金', a: '#ff8a5c', b: '#ffc76b' },
+];
 
 // 板块标题：优先用户在编辑器里改过的 sectionTitles，缺省回落到内置三语标题
 const secLT = (content: SiteContent, key: SectionKey): LocalizedText =>
@@ -300,6 +312,7 @@ function migrateContent(parsed: SiteContent): SiteContent {
     : [];
   if (!content.sectionTitles || typeof content.sectionTitles !== 'object') content.sectionTitles = {};
   if (!content.uiStrings || typeof content.uiStrings !== 'object') content.uiStrings = {};
+  if (typeof content.palette !== 'string') content.palette = '';
   if (content.profile) {
     content.profile.ticker = Array.isArray(content.profile.ticker)
       ? content.profile.ticker.map((t, i) => ({
@@ -370,6 +383,13 @@ function App() {
     document.documentElement.dataset.theme = theme;
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : locale === 'ko' ? 'ko' : 'en';
   }, [theme, locale]);
+
+  // 站点主题色（发布内容的一部分，访客看到的是站主选的配色；与明暗切换叠加）
+  useEffect(() => {
+    const p = validPalette(content.palette);
+    if (p) document.documentElement.dataset.palette = p;
+    else delete document.documentElement.dataset.palette;
+  }, [content.palette]);
 
   const site = (
     <Portfolio content={content} locale={locale} theme={theme} setLocale={setLocale} setTheme={setTheme} animate={!isAdmin} />
@@ -651,6 +671,21 @@ function Portfolio({
             />
           </div>
           <div className="settingsDock">
+            {edit && (
+              <div className="paletteDock" title="站点主题色：选好后随发布对访客生效">
+                <Palette size={15} />
+                {SITE_PALETTES.map((p) => (
+                  <button
+                    key={p.key || 'default'}
+                    type="button"
+                    className={cx('paletteDot', validPalette(content.palette) === p.key && 'on')}
+                    title={p.label}
+                    style={{ background: `linear-gradient(120deg, ${p.a}, ${p.b})` }}
+                    onClick={() => edit.set((c) => ({ ...c, palette: p.key }))}
+                  />
+                ))}
+              </div>
+            )}
             <div className="segmented" aria-label="Language selector">
               <Languages size={15} />
               {(Object.keys(localeLabels) as Locale[]).map((item) => (
