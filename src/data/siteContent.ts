@@ -384,6 +384,7 @@ export const defaultContent: SiteContent = {
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
         { zh: '简介：研究了基于模型的强化学习方法，特别是 Dyna-Q 和 POPLIN 算法的实现和应用；通过构建环境模型；对比 Dyna-Q 和&nbsp;POPLIN 的动作，研究复杂环境中的学习性能；分析模型误差累积和优化不一致性的问题，分析改进方案。', en: '简介', ko: '简介' },
+        { zh: '', en: '', ko: '' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -400,6 +401,7 @@ export const defaultContent: SiteContent = {
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
         { zh: '简介：对比了强化学习中的两种关键方法——蒙特卡洛方法和时间差分（TD）学习。分析两种方法在策略评估和改进中的适用场景；理解策略价值、局部更新、收敛速度等；并展示了 TD 学习在长期任务中的优势及其引入偏差的可能性。', en: '简介', ko: '简介' },
+        { zh: '', en: '', ko: '' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -431,7 +433,7 @@ export const defaultContent: SiteContent = {
       cover: 'public/assets/PPT/agro-ict-aws-1-chkov8mrf6aeuj.png',
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：在基于云计算的智能农业管理系统项目中，AWS 作为主要的云计算平台。关注于 AWS 环境下的智能农业管理系统架构，探讨如何运用云计算优化农业生产。<br><br><br><br>', en: '简介', ko: '简介' },
+        { zh: '简介：在基于云计算的智能农业管理系统项目中，AWS 作为主要的云计算平台。关注于 AWS 环境下的智能农业管理系统架构，探讨如何运用云计算优化农业生产。<br><br><br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -447,7 +449,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/cloud-computing-smart-agricultural-manag-3m6pi2mrf69cx3.png',
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：研究服务器架构与对比，探讨对架构的理解与使用的核心技术、各层级的理解、发展方向、技术应用。<br><br><br><br><br>', en: '简介', ko: '简介' },
+        { zh: '简介：研究服务器架构与对比，探讨对架构的理解与使用的核心技术、各层级的理解、发展方向、技术应用。<br><br><br><br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
