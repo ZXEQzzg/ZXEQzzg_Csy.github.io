@@ -367,7 +367,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/rl-ai-snake-9asnhwmrf76lih.png',
       category: { zh: '学术驱动项目', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：利用强化学习方法，结合 DQN 和 Actor-Critic 算法实现了基于 Pygame 的贪吃蛇游戏智能体(RL语境下)。本研究通过对比DQN和A.C在贪吃蛇游戏中的强化学习效果。展示了A.C算法在策略优化和环境适应性方面的优势，同时分析了两种方法的适用场景及优化方向。', en: '简介', ko: '简介' },
+        { zh: '简介：利用强化学习方法，结合 DQN 和 Actor-Critic 算法实现了基于 Pygame 的贪吃蛇游戏智能体(RL语境下)。本研究通过对比DQN和A.C在贪吃蛇游戏中的强化学习效果。A.C算法在策略优化和环境适应性方面的优势，同时分析了两种方法的适用场景及优化方向。', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -383,8 +383,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/model-based-reinforcement-learning-dyna--xmsl41mrf6bnnd.png',
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：研究了基于模型的强化学习方法，特别是 Dyna-Q 和 POPLIN 算法的实现和应用；通过构建环境模型；对比 Dyna-Q 和&nbsp;POPLIN 的动作，研究复杂环境中的学习性能；分析模型误差累积和优化不一致性的问题，分析改进方案。', en: '简介', ko: '简介' },
-        { zh: '', en: '', ko: '' },
+        { zh: '简介：研究了基于模型的强化学习方法，特别是 Dyna-Q 和 POPLIN 算法的实现和应用；通过构建环境模型；对比 Dyna-Q 和&nbsp;POPLIN 的动作，研究复杂环境中的学习性能；分析模型误差累积和优化不一致性的问题，分析改进方案。<br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -400,8 +399,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/monte-carlo-temporal-difference-learning-mjj2k7mrf7rk3g.png',
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：对比了强化学习中的两种关键方法——蒙特卡洛方法和时间差分（TD）学习。分析两种方法在策略评估和改进中的适用场景；理解策略价值、局部更新、收敛速度等；并展示了 TD 学习在长期任务中的优势及其引入偏差的可能性。', en: '简介', ko: '简介' },
-        { zh: '', en: '', ko: '' },
+        { zh: '简介：对比了强化学习中的两种关键方法——蒙特卡洛方法和时间差分（TD）学习。分析两种方法在策略评估和改进中的适用场景；理解策略价值、局部更新、收敛速度等；并展示了 TD 学习在长期任务中的优势及其引入偏差的可能性。<br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -465,7 +463,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/iot-dkre7bmrf6b5b2.png',
       category: { zh: '学术驱动课题', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：主要探研究物联网（IoT）、云计算（Cloud Computing）和大数据（Big Data）在不同服务与行业中的规模型应用。以第四次工业革命为基准的基础服务方式研究。<br>', en: '简介', ko: '简介' },
+        { zh: '简介：主要探研究物联网（IoT）、云计算（Cloud Computing）和大数据（Big Data）在不同服务与行业中的规模型应用。以第四次工业革命为基准的基础服务方式研究。<br><br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -593,8 +591,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/linux-ubuntu-w29sk6mrf8z6zu.png',
       category: { zh: '学术驱动课题-23年', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：课题-设计多功能 Shell 脚本，集成多种信息收集方法，用于快速收集和管理 Linux Ubuntu 系统的关键信息。', en: '简介', ko: '简介' },
-        { zh: '', en: '', ko: '' },
+        { zh: '简介：课题-设计多功能 Shell 脚本，集成多种信息收集方法，用于快速收集和管理 Linux Ubuntu 系统的关键信息。<br><br>', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -610,7 +607,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/yolo-12-s09p5gmrf8z2gw.png',
       category: { zh: '学术驱动项目-23年', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：结合使用 YOLOv3-Tiny 与 djitellopy Tello 无人机训练自定义数据集，实现高精度检测。 无人机嵌入式场景下的高精度目标识别与跟踪，实现视频流采集、图像处理及目标检测功能。', en: '简介', ko: '简介' },
+        { zh: '简介：结合使用 YOLOv3-Tiny 与 djitellopy Tello 无人机训练自定义数据集，实现高精度检测。 嵌入式场景下的高精度目标识别与跟踪，实现视频流采集、图像处理及目标检测功能。', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -626,7 +623,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/20260711020252-lnebirmrf8yni5.png',
       category: { zh: '学术驱动项目-22年', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：基于数据分析与机器学习方法，针对老年人口医疗需求，设计的一套数据驱动的医院选址优化模型。通过标准化指标和加权评分模型，评估各候选地区的适宜性并进行预测与分析。', en: '简介', ko: '简介' },
+        { zh: '简介：基于数据分析与机器学习方法，针对老年人口医疗，设计的一套数据驱动的医院选址优化模型。通过标准化指标和加权评分模型，评估候选区域的适宜性并进行预测与分析。', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
@@ -642,7 +639,7 @@ export const defaultContent: SiteContent = {
       cover: '/assets/PPT/20260711020215-omvzc3mrf8yubo.png',
       category: { zh: '学术驱动项目-22年', en: 'Academic Project', ko: '학술 기반 프로젝트' },
       notes: [
-        { zh: '简介：引入ARIMA（时序预测）模型进行未来老年人口密度的时序预测，以及MLP Regressor（多层感知器回归模型）进行人口数据的回归分析，帮助预测未来趋势和资源需求变化。', en: '简介', ko: '简介' },
+        { zh: '简介：引入ARIMA(时序预测)模型进行未来老年人口密度的时序预测，以及MLP Regressor(多层感知器回归模型)进行人口数据的回归分析，预测未来趋势和资源需求变化。', en: '简介', ko: '简介' },
       ],
       stack: ['AI', 'Research'],
       role: { zh: '负责内容', en: '负责内容', ko: '负责内容' },
