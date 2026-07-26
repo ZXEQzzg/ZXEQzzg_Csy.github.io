@@ -127,7 +127,7 @@ export const defaultContent: SiteContent = {
     ],
     photoBackdrop: '/assets/I/20260713035613-1jnu05mri8371o.png',
     mark: 'CV',
-    siteTitle: 'ZXEQzzg_Csy.github.io | 个人经历Web',
+    siteTitle: 'ZXEQzzg_Csy.github.io | 个人经历 Web',
     tickerLabel: { zh: '近期内容', en: 'Recent', ko: '최근 소식' },
     ticker: [
       { id: 'ticker-1783715176788', text: { zh: '“你好搭子” 最新更新 KWS 模块', en: '', ko: '' }, image: '/assets/Recent/hidazi-x6o2hpmrfdznnn.png', imageHeight: 81 },
@@ -140,7 +140,7 @@ export const defaultContent: SiteContent = {
     headline: { zh: '<span style="font-size: 23px;">AI / LLM 专业背景 - AI Agent 产品/交互方向 - HAII 方式 - 前沿客户端侧工程</span><div><span style="font-size: 23px;">AI 语音交互 - TTS / ASR / VAD / KWS / 声学仿真&nbsp;</span></div>', en: 'AI background, product design sense, research-driven project practice', ko: 'AI 전공 기반, 제품 디자인 감각, 연구 중심 프로젝트 경험' },
     intro: { zh: '<span style="font-size: 16px;">Hi！我是陈斯阳，毕业于 韩国全州大学人工智能专业 (22–26届) ProfKIM 研究室；过往经历中我专注于大语言模型相关应用研究与AI工程领域，具备从项目研究、产品分析到工程落地的能力。感谢了解，期待沟通~</span>', en: 'I focus on how AI systems move into real product contexts, balancing model capability, user experience, and explainable design.', ko: 'AI 시스템이 실제 제품 환경에 들어가는 방식에 관심이 있으며 모델 성능, 사용자 경험, 설명 가능한 설계의 균형을 중시합니다.' },
     research: { zh: '<span style="font-size: 0.85em;"><span style="font-weight: bold; color: rgb(111, 215, 198);">研究方向</span><span style="color: rgb(111, 215, 198); font-weight: bold;">：</span>Agent 多领域应用 | Agent Memory | 语音（TTS/ASR/VAD/KWS/声学SIM）| LLM 全双工语音交互 | Agent HCI&nbsp;</span><div><span style="font-size: 0.85em;"><span style="font-weight: bold; color: rgb(111, 215, 198);">工程具备</span><span style="font-weight: bold; color: rgb(111, 215, 198);">：</span>AI 工程方式的前沿技术 | Agent与语音交互方式 | 快速搭建原型流 | 用户需求分析 | 技术交互类产品研究</span></div>', en: 'Research interests: multimodal interaction, agentic applications, AI-assisted design, and data-driven product analysis.', ko: '연구 관심사: 멀티모달 인터랙션, 에이전트 애플리케이션, AI 보조 디자인, 데이터 기반 제품 분석.' },
-    location: { zh: '🌏 中国 / 可远程协作', en: 'China / Remote collaboration', ko: '중국 / 원격 협업 가능' },
+    location: { zh: '🌐 中国 / 可远程协作', en: 'China / Remote collaboration', ko: '중국 / 원격 협업 가능' },
     links: [
       { label: 'Email', value: 'ZXEQzzg@163.com', href: 'ZXEQzzg@163.com' },
       { label: 'GitHub', value: 'github.com/ZXEQzzg', href: 'https://github.com/ZXEQzzg' },
