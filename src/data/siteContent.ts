@@ -137,7 +137,7 @@ export const defaultContent: SiteContent = {
       { id: 'ticker-1784885976734', text: { zh: '世界杯的故事结束了!<br>', en: '', ko: '' }, image: '/assets/Recent/20260724174132-vjusw4mryru0qq.jpg', imageHeight: 102 },
       { id: 'ticker-1784885977638', text: { zh: 'MatchMeta AI 产品介绍', en: '', ko: '' }, image: '/assets/Recent/15e7909b72bc213f3513824f5fe6392-23w8k8mryscsww.jpg', imageHeight: 99 },
     ],
-    headline: { zh: '<span style="font-size: 23px;">AI / LLM 专业背景 - AI Agent 产品/交互方向 - HAII 方式 - 前沿客户端侧工程</span><div><span style="font-size: 23px;">AI 语音交互 - TTS / ASR / VAD / KWS / 声学仿真&nbsp;</span></div>', en: 'AI background, product design sense, research-driven project practice', ko: 'AI 전공 기반, 제품 디자인 감각, 연구 중심 프로젝트 경험' },
+    headline: { zh: '<span style="font-size: 23px;">AI / LLM 专业背景 - AI Agent 产品/交互方向 - HAII 方式 - 前沿客户端侧工程</span><div><span style="font-size: 23px;">AI 语音交互 - TTS / ASR / VAD / KWS / 声学仿真 AAA</span></div>', en: 'AI background, product design sense, research-driven project practice', ko: 'AI 전공 기반, 제품 디자인 감각, 연구 중심 프로젝트 경험' },
     intro: { zh: '<span style="font-size: 16px;">Hi！我是陈斯阳，毕业于 韩国全州大学人工智能专业 (22–26届) ProfKIM 研究室；过往经历中我专注于大语言模型相关应用研究与AI工程领域，具备从项目研究、产品分析到工程落地的能力。感谢了解，期待沟通~</span>', en: 'I focus on how AI systems move into real product contexts, balancing model capability, user experience, and explainable design.', ko: 'AI 시스템이 실제 제품 환경에 들어가는 방식에 관심이 있으며 모델 성능, 사용자 경험, 설명 가능한 설계의 균형을 중시합니다.' },
     research: { zh: '<span style="font-size: 0.85em;"><span style="font-weight: bold; color: rgb(111, 215, 198);">研究方向</span><span style="color: rgb(111, 215, 198); font-weight: bold;">：</span>Agent 多领域应用 | Agent Memory | 语音（TTS/ASR/VAD/KWS/声学SIM）| LLM 全双工语音交互 | Agent HCI&nbsp;</span><div><span style="font-size: 0.85em;"><span style="font-weight: bold; color: rgb(111, 215, 198);">工程具备</span><span style="font-weight: bold; color: rgb(111, 215, 198);">：</span>AI 工程方式的前沿技术 | Agent与语音交互方式 | 快速搭建原型流 | 用户需求分析 | 技术交互类产品研究</span></div>', en: 'Research interests: multimodal interaction, agentic applications, AI-assisted design, and data-driven product analysis.', ko: '연구 관심사: 멀티모달 인터랙션, 에이전트 애플리케이션, AI 보조 디자인, 데이터 기반 제품 분석.' },
     location: { zh: '🌐 中国 / 可远程协作', en: 'China / Remote collaboration', ko: '중국 / 원격 협업 가능' },
@@ -184,7 +184,7 @@ export const defaultContent: SiteContent = {
       period: '2025',
       summary: { zh: '参与 TCL 家庭陪伴机器人 AiMe 的<span style="font-weight: bold; color: rgb(111, 215, 198);">全双工语音交互</span>模块研发。<div>围绕 TCL AI 语音机器人产品的各链路语音交互能力，涵盖&nbsp;<span style="color: rgb(111, 215, 198);">VAD检测</span>（三类模型选型优化）、<span style="color: rgb(111, 215, 198);">声学仿真</span>（WebRIR-Studio在线平台）、<span style="color: rgb(111, 215, 198);">语音增强</span>（WPE去混响评估）、<span style="color: rgb(111, 215, 198);">对话管理</span>（全双工四态数据构建）、<span style="color: rgb(111, 215, 198);">LLM打断识别</span>（Prompt Eng 多模型对比评测）</div>', en: 'A planning tool for long-term study goals with task decomposition, progress tracking, and reflective feedback.', ko: '장기 학습 목표를 위한 계획 도구로, 작업 분해와 진행 추적, 피드백 요약을 결합했습니다.' },
       images: ['public/assets/PPTF.png', 'public/assets/TCLAiMe01.png', 'public/assets/TCLAiMe02.png', 'public/assets/WebRIR.jpg'],
-      stack: ['LLM 打断设计', 'VAD ', 'NLP', '语音 ', '声学仿真', '全双工语音交互', 'HCI', 'WPE', 'LLM SFT seed data&nbsp;', 'LLM 训练数据', '🤖', '🎙️', '🤖', '🎙️', '🤖', '🎙️'],
+      stack: ['LLM 打断设计', 'VAD ', 'NLP', '语音 ', '声学仿真', '全双工语音交互', 'HCI', 'WPE', 'LLM SFT seed data&nbsp;', 'LLM 训练数据', '🤖', '🎙️', '🤖', '🎙️', '🤖', '🎙️', '🤖', '🎙️'],
       role: { zh: '<span style="color: rgb(255, 155, 155);">- </span>AiMe 机器人需要中文全双工口语对话管理策略与数据，用于训练轻量级语义VAD。<br><span style="color: rgb(169, 163, 255);">- </span>声学组需验证不同房间尺寸、阵列间距、信噪比、混响时间对ASR/降噪算法的影响。<br><span style="color: rgb(242, 196, 109);">- </span>用户打断识别是影响智能语音交互自然性和用户体验的关键环节，需系统评估大模型在该场景下的表现。<br><span style="color: rgb(111, 215, 198);">- </span>为 AiMe 机器人选型并优化VAD模型。', en: 'Owned product structure, interaction prototype, prompt workflow, and core UI implementation.', ko: '제품 구조, 인터랙션 프로토타입, 프롬프트 흐름, 핵심 UI 구현을 담당했습니다.' },
       outcome: { zh: '<span style="color: rgb(255, 155, 155);">- </span>交付构建   [全双⼯对话系统策略 v1]   SFT 四态分布训练策略数据。<br><span style="color: rgb(169, 163, 255);">- </span>交付 WebRIR-Studio 在线平台，实现RIR生成-卷积-可视化一体化。<br><span style="color: rgb(242, 196, 109);">- </span>设计189条打断识别测试集，完成4款大模型对比实验，输出选型策略。<br><span style="color: rgb(111, 215, 198);">- </span>TEN/FSMN/Silero 三类 VAD 选型调优与WPE去混响评估，建立延迟-误差量化体系。<br>', en: 'Built a demonstrable prototype and validated the path from vague goals to executable plans.', ko: '시연 가능한 프로토타입을 만들고 모호한 목표를 실행 계획으로 전환하는 흐름을 검증했습니다.' },
       details: [
@@ -195,7 +195,7 @@ export const defaultContent: SiteContent = {
       ],
       widthPct: 100,
       imageHeight: 180,
-      stackColors: ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+      stackColors: ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
     },
     {
       id: 'timeline-project-1783547312494',
