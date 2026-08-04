@@ -148,7 +148,7 @@ export const defaultContent: SiteContent = {
       { label: '电话', value: '+86 13248371107', href: '·' },
       { label: '微信', value: 'WeChat：John_H_Hua_Sheng', href: '·' },
     ],
-    resume: { images: ['public/assets/--个人简历_CHENSIYANG--_PM.jpg'], pdf: '/assets/chensiyang-pm-ar8re1mrb2m3cz.pdf' },
+    resume: { images: ['/assets/chensiyang-cvpm-ojzepnmsew6lh6.png'], pdf: '/assets/chensiyang-cvpm-xrm428msew4dgm.pdf' },
     heroHeight: 628,
   },
   skills: {
