@@ -815,6 +815,18 @@ export const defaultContent: SiteContent = {
       widthPct: 24,
     },
     {
+      id: 'research-1787258445852',
+      kind: '博客',
+      title: { zh: '美团技术团队 | 由浅入深讲解Agent评测', en: '新条目', ko: '新条目' },
+      link: '',
+      note: { zh: '本文由美团图灵Agent评测团队两年实战经验所得。<br><br><br>', en: '', ko: '' },
+      image: 'https://www.xiaohongshu.com/explore/6a794b740000000028000e4b?app_platform=ios&app_version=9.41.2&share_from_user_hidden=true&xsec_source=app_share&type=normal&xsec_token=CB9wPDBBy6GZlCSPlwf7sDkBBgs5463O4bTD2uxMcFC3Q=&author_share=1&xhsshare=WeixinSession&shareRedId=N0lHRTtGPUE2NzUyOTgwNjc7OTpFOTpK&apptime=1786353135&share_id=995517fdeae74f3288be0356f51d1bfb&code=83kE16rwVu5&wechatWid=ef1738f18f7be25215402f817e01e4de&wechatOrigin=menu',
+      pdf: '',
+      imageMode: 'auto',
+      imageHeight: 190,
+      widthPct: 50,
+    },
+    {
       id: 'research-1784887439598',
       kind: '博客',
       title: { zh: '产品介绍：MatchMate成长回顾｜你的AI看球搭子', en: '新条目', ko: '新条目' },
