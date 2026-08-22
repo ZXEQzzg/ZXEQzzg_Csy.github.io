@@ -127,7 +127,7 @@ export const defaultContent: SiteContent = {
     ],
     photoBackdrop: '/assets/I/20260713035613-1jnu05mri8371o.png',
     mark: 'CV',
-    siteTitle: 'ZXEQzzg_Csy.github.io | 个人经历 Web',
+    siteTitle: 'ZXEQzzg_Csy.github.io | 个人经历 &amp; 作品集 Web',
     tickerLabel: { zh: '近期内容', en: 'Recent', ko: '최근 소식' },
     ticker: [
       { id: 'ticker-1783715176788', text: { zh: '“你好搭子” 最新更新 KWS 模块', en: '', ko: '' }, image: '/assets/Recent/hidazi-x6o2hpmrfdznnn.png', imageHeight: 81 },
